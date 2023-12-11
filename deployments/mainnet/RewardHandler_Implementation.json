@@ -1,0 +1,296 @@
+{
+  "address": "0xed62815F74Cf460245C2069209a722cdA3513cBF",
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidZeroInput",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotNativeEthRestakeAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotRestakeManagerAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TransferFailed",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "version",
+          "type": "uint8"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "rewardDestination",
+          "type": "address"
+        }
+      ],
+      "name": "RewardDestinationUpdated",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "forwardRewards",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract IRoleManager",
+          "name": "_roleManager",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_rewardDestination",
+          "type": "address"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "rewardDestination",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "roleManager",
+      "outputs": [
+        {
+          "internalType": "contract IRoleManager",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_rewardDestination",
+          "type": "address"
+        }
+      ],
+      "name": "setRewardDestination",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ],
+  "transactionHash": "0x69634ad1e76bc8c0bbd6742d9beb0f369816b50837550d5519405b002f346e5d",
+  "receipt": {
+    "to": null,
+    "from": "0xB7d2E57aE1a8eCc5f5487b010E1fCd60f4b84dC0",
+    "contractAddress": "0xed62815F74Cf460245C2069209a722cdA3513cBF",
+    "transactionIndex": 175,
+    "gasUsed": "459809",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x776074410311605258a5cef8c7700e9453d8aae2c54b39694c236d95bfa927e8",
+    "transactionHash": "0x69634ad1e76bc8c0bbd6742d9beb0f369816b50837550d5519405b002f346e5d",
+    "logs": [
+      {
+        "transactionIndex": 175,
+        "blockNumber": 18722798,
+        "transactionHash": "0x69634ad1e76bc8c0bbd6742d9beb0f369816b50837550d5519405b002f346e5d",
+        "address": "0xed62815F74Cf460245C2069209a722cdA3513cBF",
+        "topics": [
+          "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
+        ],
+        "data": "0x00000000000000000000000000000000000000000000000000000000000000ff",
+        "logIndex": 301,
+        "blockHash": "0x776074410311605258a5cef8c7700e9453d8aae2c54b39694c236d95bfa927e8"
+      }
+    ],
+    "blockNumber": 18722798,
+    "cumulativeGasUsed": "17289314",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "e61991be36f3b065cf1f32b510d9735d",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.19+commit.7dd6d404\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"InvalidZeroInput\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotNativeEthRestakeAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotRestakeManagerAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFailed\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"rewardDestination\",\"type\":\"address\"}],\"name\":\"RewardDestinationUpdated\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"forwardRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contract IRoleManager\",\"name\":\"_roleManager\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_rewardDestination\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardDestination\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"roleManager\",\"outputs\":[{\"internalType\":\"contract IRoleManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_rewardDestination\",\"type\":\"address\"}],\"name\":\"setRewardDestination\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}],\"devdoc\":{\"author\":\"Renzo Protocol\",\"details\":\"Handles native ETH rewards deposited on the execution layer from validator nodes.  Forwards them to the DepositQueue contract for restaking.\",\"errors\":{\"InvalidZeroInput()\":[{\"details\":\"Error for 0x0 address inputs\"}],\"NotNativeEthRestakeAdmin()\":[{\"details\":\"Errror when caller does not have ETH Restake Admin role\"}],\"NotRestakeManagerAdmin()\":[{\"details\":\"Error for caller not having permissions\"}],\"TransferFailed()\":[{\"details\":\"Error when ending ETH fails\"}]},\"events\":{\"Initialized(uint8)\":{\"details\":\"Triggered when the contract has been initialized or reinitialized.\"}},\"kind\":\"dev\",\"methods\":{\"constructor\":{\"custom:oz-upgrades-unsafe-allow\":\"constructor\",\"details\":\"Prevents implementation contract from being initialized.\"},\"forwardRewards()\":{\"details\":\"Forwards all native ETH rewards to the DepositQueue contract\"},\"initialize(address,address)\":{\"details\":\"Initializes the contract with initial vars\"}},\"title\":\"RewardHandler\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\".\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/Rewards/RewardHandler.sol\":\"RewardHandler\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[]},\"sources\":{\"@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.9.0) (proxy/utils/Initializable.sol)\\n\\npragma solidity ^0.8.2;\\n\\nimport \\\"../../utils/AddressUpgradeable.sol\\\";\\n\\n/**\\n * @dev This is a base contract to aid in writing upgradeable contracts, or any kind of contract that will be deployed\\n * behind a proxy. Since proxied contracts do not make use of a constructor, it's common to move constructor logic to an\\n * external initializer function, usually called `initialize`. It then becomes necessary to protect this initializer\\n * function so it can only be called once. The {initializer} modifier provided by this contract will have this effect.\\n *\\n * The initialization functions use a version number. Once a version number is used, it is consumed and cannot be\\n * reused. This mechanism prevents re-execution of each \\\"step\\\" but allows the creation of new initialization steps in\\n * case an upgrade adds a module that needs to be initialized.\\n *\\n * For example:\\n *\\n * [.hljs-theme-light.nopadding]\\n * ```solidity\\n * contract MyToken is ERC20Upgradeable {\\n *     function initialize() initializer public {\\n *         __ERC20_init(\\\"MyToken\\\", \\\"MTK\\\");\\n *     }\\n * }\\n *\\n * contract MyTokenV2 is MyToken, ERC20PermitUpgradeable {\\n *     function initializeV2() reinitializer(2) public {\\n *         __ERC20Permit_init(\\\"MyToken\\\");\\n *     }\\n * }\\n * ```\\n *\\n * TIP: To avoid leaving the proxy in an uninitialized state, the initializer function should be called as early as\\n * possible by providing the encoded function call as the `_data` argument to {ERC1967Proxy-constructor}.\\n *\\n * CAUTION: When used with inheritance, manual care must be taken to not invoke a parent initializer twice, or to ensure\\n * that all initializers are idempotent. This is not verified automatically as constructors are by Solidity.\\n *\\n * [CAUTION]\\n * ====\\n * Avoid leaving a contract uninitialized.\\n *\\n * An uninitialized contract can be taken over by an attacker. This applies to both a proxy and its implementation\\n * contract, which may impact the proxy. To prevent the implementation contract from being used, you should invoke\\n * the {_disableInitializers} function in the constructor to automatically lock it when it is deployed:\\n *\\n * [.hljs-theme-light.nopadding]\\n * ```\\n * /// @custom:oz-upgrades-unsafe-allow constructor\\n * constructor() {\\n *     _disableInitializers();\\n * }\\n * ```\\n * ====\\n */\\nabstract contract Initializable {\\n    /**\\n     * @dev Indicates that the contract has been initialized.\\n     * @custom:oz-retyped-from bool\\n     */\\n    uint8 private _initialized;\\n\\n    /**\\n     * @dev Indicates that the contract is in the process of being initialized.\\n     */\\n    bool private _initializing;\\n\\n    /**\\n     * @dev Triggered when the contract has been initialized or reinitialized.\\n     */\\n    event Initialized(uint8 version);\\n\\n    /**\\n     * @dev A modifier that defines a protected initializer function that can be invoked at most once. In its scope,\\n     * `onlyInitializing` functions can be used to initialize parent contracts.\\n     *\\n     * Similar to `reinitializer(1)`, except that functions marked with `initializer` can be nested in the context of a\\n     * constructor.\\n     *\\n     * Emits an {Initialized} event.\\n     */\\n    modifier initializer() {\\n        bool isTopLevelCall = !_initializing;\\n        require(\\n            (isTopLevelCall && _initialized < 1) || (!AddressUpgradeable.isContract(address(this)) && _initialized == 1),\\n            \\\"Initializable: contract is already initialized\\\"\\n        );\\n        _initialized = 1;\\n        if (isTopLevelCall) {\\n            _initializing = true;\\n        }\\n        _;\\n        if (isTopLevelCall) {\\n            _initializing = false;\\n            emit Initialized(1);\\n        }\\n    }\\n\\n    /**\\n     * @dev A modifier that defines a protected reinitializer function that can be invoked at most once, and only if the\\n     * contract hasn't been initialized to a greater version before. In its scope, `onlyInitializing` functions can be\\n     * used to initialize parent contracts.\\n     *\\n     * A reinitializer may be used after the original initialization step. This is essential to configure modules that\\n     * are added through upgrades and that require initialization.\\n     *\\n     * When `version` is 1, this modifier is similar to `initializer`, except that functions marked with `reinitializer`\\n     * cannot be nested. If one is invoked in the context of another, execution will revert.\\n     *\\n     * Note that versions can jump in increments greater than 1; this implies that if multiple reinitializers coexist in\\n     * a contract, executing them in the right order is up to the developer or operator.\\n     *\\n     * WARNING: setting the version to 255 will prevent any future reinitialization.\\n     *\\n     * Emits an {Initialized} event.\\n     */\\n    modifier reinitializer(uint8 version) {\\n        require(!_initializing && _initialized < version, \\\"Initializable: contract is already initialized\\\");\\n        _initialized = version;\\n        _initializing = true;\\n        _;\\n        _initializing = false;\\n        emit Initialized(version);\\n    }\\n\\n    /**\\n     * @dev Modifier to protect an initialization function so that it can only be invoked by functions with the\\n     * {initializer} and {reinitializer} modifiers, directly or indirectly.\\n     */\\n    modifier onlyInitializing() {\\n        require(_initializing, \\\"Initializable: contract is not initializing\\\");\\n        _;\\n    }\\n\\n    /**\\n     * @dev Locks the contract, preventing any future reinitialization. This cannot be part of an initializer call.\\n     * Calling this in the constructor of a contract will prevent that contract from being initialized or reinitialized\\n     * to any version. It is recommended to use this to lock implementation contracts that are designed to be called\\n     * through proxies.\\n     *\\n     * Emits an {Initialized} event the first time it is successfully executed.\\n     */\\n    function _disableInitializers() internal virtual {\\n        require(!_initializing, \\\"Initializable: contract is initializing\\\");\\n        if (_initialized != type(uint8).max) {\\n            _initialized = type(uint8).max;\\n            emit Initialized(type(uint8).max);\\n        }\\n    }\\n\\n    /**\\n     * @dev Returns the highest version that has been initialized. See {reinitializer}.\\n     */\\n    function _getInitializedVersion() internal view returns (uint8) {\\n        return _initialized;\\n    }\\n\\n    /**\\n     * @dev Returns `true` if the contract is currently initializing. See {onlyInitializing}.\\n     */\\n    function _isInitializing() internal view returns (bool) {\\n        return _initializing;\\n    }\\n}\\n\",\"keccak256\":\"0x89be10e757d242e9b18d5a32c9fbe2019f6d63052bbe46397a430a1d60d7f794\",\"license\":\"MIT\"},\"@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.9.0) (security/ReentrancyGuard.sol)\\n\\npragma solidity ^0.8.0;\\nimport \\\"../proxy/utils/Initializable.sol\\\";\\n\\n/**\\n * @dev Contract module that helps prevent reentrant calls to a function.\\n *\\n * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier\\n * available, which can be applied to functions to make sure there are no nested\\n * (reentrant) calls to them.\\n *\\n * Note that because there is a single `nonReentrant` guard, functions marked as\\n * `nonReentrant` may not call one another. This can be worked around by making\\n * those functions `private`, and then adding `external` `nonReentrant` entry\\n * points to them.\\n *\\n * TIP: If you would like to learn more about reentrancy and alternative ways\\n * to protect against it, check out our blog post\\n * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].\\n */\\nabstract contract ReentrancyGuardUpgradeable is Initializable {\\n    // Booleans are more expensive than uint256 or any type that takes up a full\\n    // word because each write operation emits an extra SLOAD to first read the\\n    // slot's contents, replace the bits taken up by the boolean, and then write\\n    // back. This is the compiler's defense against contract upgrades and\\n    // pointer aliasing, and it cannot be disabled.\\n\\n    // The values being non-zero value makes deployment a bit more expensive,\\n    // but in exchange the refund on every call to nonReentrant will be lower in\\n    // amount. Since refunds are capped to a percentage of the total\\n    // transaction's gas, it is best to keep them low in cases like this one, to\\n    // increase the likelihood of the full refund coming into effect.\\n    uint256 private constant _NOT_ENTERED = 1;\\n    uint256 private constant _ENTERED = 2;\\n\\n    uint256 private _status;\\n\\n    function __ReentrancyGuard_init() internal onlyInitializing {\\n        __ReentrancyGuard_init_unchained();\\n    }\\n\\n    function __ReentrancyGuard_init_unchained() internal onlyInitializing {\\n        _status = _NOT_ENTERED;\\n    }\\n\\n    /**\\n     * @dev Prevents a contract from calling itself, directly or indirectly.\\n     * Calling a `nonReentrant` function from another `nonReentrant`\\n     * function is not supported. It is possible to prevent this from happening\\n     * by making the `nonReentrant` function external, and making it call a\\n     * `private` function that does the actual work.\\n     */\\n    modifier nonReentrant() {\\n        _nonReentrantBefore();\\n        _;\\n        _nonReentrantAfter();\\n    }\\n\\n    function _nonReentrantBefore() private {\\n        // On the first call to nonReentrant, _status will be _NOT_ENTERED\\n        require(_status != _ENTERED, \\\"ReentrancyGuard: reentrant call\\\");\\n\\n        // Any calls to nonReentrant after this point will fail\\n        _status = _ENTERED;\\n    }\\n\\n    function _nonReentrantAfter() private {\\n        // By storing the original value once again, a refund is triggered (see\\n        // https://eips.ethereum.org/EIPS/eip-2200)\\n        _status = _NOT_ENTERED;\\n    }\\n\\n    /**\\n     * @dev Returns true if the reentrancy guard is currently set to \\\"entered\\\", which indicates there is a\\n     * `nonReentrant` function in the call stack.\\n     */\\n    function _reentrancyGuardEntered() internal view returns (bool) {\\n        return _status == _ENTERED;\\n    }\\n\\n    /**\\n     * @dev This empty reserved space is put in place to allow future versions to add new\\n     * variables without shifting down storage in the inheritance chain.\\n     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps\\n     */\\n    uint256[49] private __gap;\\n}\\n\",\"keccak256\":\"0xb82ef33f43b6b96109687d91b39c94573fdccaaa423fe28e8ba0977b31c023e0\",\"license\":\"MIT\"},\"@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.9.0) (utils/Address.sol)\\n\\npragma solidity ^0.8.1;\\n\\n/**\\n * @dev Collection of functions related to the address type\\n */\\nlibrary AddressUpgradeable {\\n    /**\\n     * @dev Returns true if `account` is a contract.\\n     *\\n     * [IMPORTANT]\\n     * ====\\n     * It is unsafe to assume that an address for which this function returns\\n     * false is an externally-owned account (EOA) and not a contract.\\n     *\\n     * Among others, `isContract` will return false for the following\\n     * types of addresses:\\n     *\\n     *  - an externally-owned account\\n     *  - a contract in construction\\n     *  - an address where a contract will be created\\n     *  - an address where a contract lived, but was destroyed\\n     *\\n     * Furthermore, `isContract` will also return true if the target contract within\\n     * the same transaction is already scheduled for destruction by `SELFDESTRUCT`,\\n     * which only has an effect at the end of a transaction.\\n     * ====\\n     *\\n     * [IMPORTANT]\\n     * ====\\n     * You shouldn't rely on `isContract` to protect against flash loan attacks!\\n     *\\n     * Preventing calls from contracts is highly discouraged. It breaks composability, breaks support for smart wallets\\n     * like Gnosis Safe, and does not provide security since it can be circumvented by calling from a contract\\n     * constructor.\\n     * ====\\n     */\\n    function isContract(address account) internal view returns (bool) {\\n        // This method relies on extcodesize/address.code.length, which returns 0\\n        // for contracts in construction, since the code is only stored at the end\\n        // of the constructor execution.\\n\\n        return account.code.length > 0;\\n    }\\n\\n    /**\\n     * @dev Replacement for Solidity's `transfer`: sends `amount` wei to\\n     * `recipient`, forwarding all available gas and reverting on errors.\\n     *\\n     * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost\\n     * of certain opcodes, possibly making contracts go over the 2300 gas limit\\n     * imposed by `transfer`, making them unable to receive funds via\\n     * `transfer`. {sendValue} removes this limitation.\\n     *\\n     * https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now/[Learn more].\\n     *\\n     * IMPORTANT: because control is transferred to `recipient`, care must be\\n     * taken to not create reentrancy vulnerabilities. Consider using\\n     * {ReentrancyGuard} or the\\n     * https://solidity.readthedocs.io/en/v0.8.0/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].\\n     */\\n    function sendValue(address payable recipient, uint256 amount) internal {\\n        require(address(this).balance >= amount, \\\"Address: insufficient balance\\\");\\n\\n        (bool success, ) = recipient.call{value: amount}(\\\"\\\");\\n        require(success, \\\"Address: unable to send value, recipient may have reverted\\\");\\n    }\\n\\n    /**\\n     * @dev Performs a Solidity function call using a low level `call`. A\\n     * plain `call` is an unsafe replacement for a function call: use this\\n     * function instead.\\n     *\\n     * If `target` reverts with a revert reason, it is bubbled up by this\\n     * function (like regular Solidity function calls).\\n     *\\n     * Returns the raw returned data. To convert to the expected return value,\\n     * use https://solidity.readthedocs.io/en/latest/units-and-global-variables.html?highlight=abi.decode#abi-encoding-and-decoding-functions[`abi.decode`].\\n     *\\n     * Requirements:\\n     *\\n     * - `target` must be a contract.\\n     * - calling `target` with `data` must not revert.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCall(address target, bytes memory data) internal returns (bytes memory) {\\n        return functionCallWithValue(target, data, 0, \\\"Address: low-level call failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`], but with\\n     * `errorMessage` as a fallback revert reason when `target` reverts.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCall(\\n        address target,\\n        bytes memory data,\\n        string memory errorMessage\\n    ) internal returns (bytes memory) {\\n        return functionCallWithValue(target, data, 0, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],\\n     * but also transferring `value` wei to `target`.\\n     *\\n     * Requirements:\\n     *\\n     * - the calling contract must have an ETH balance of at least `value`.\\n     * - the called Solidity function must be `payable`.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {\\n        return functionCallWithValue(target, data, value, \\\"Address: low-level call with value failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCallWithValue-address-bytes-uint256-}[`functionCallWithValue`], but\\n     * with `errorMessage` as a fallback revert reason when `target` reverts.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCallWithValue(\\n        address target,\\n        bytes memory data,\\n        uint256 value,\\n        string memory errorMessage\\n    ) internal returns (bytes memory) {\\n        require(address(this).balance >= value, \\\"Address: insufficient balance for call\\\");\\n        (bool success, bytes memory returndata) = target.call{value: value}(data);\\n        return verifyCallResultFromTarget(target, success, returndata, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],\\n     * but performing a static call.\\n     *\\n     * _Available since v3.3._\\n     */\\n    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {\\n        return functionStaticCall(target, data, \\\"Address: low-level static call failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],\\n     * but performing a static call.\\n     *\\n     * _Available since v3.3._\\n     */\\n    function functionStaticCall(\\n        address target,\\n        bytes memory data,\\n        string memory errorMessage\\n    ) internal view returns (bytes memory) {\\n        (bool success, bytes memory returndata) = target.staticcall(data);\\n        return verifyCallResultFromTarget(target, success, returndata, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],\\n     * but performing a delegate call.\\n     *\\n     * _Available since v3.4._\\n     */\\n    function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {\\n        return functionDelegateCall(target, data, \\\"Address: low-level delegate call failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],\\n     * but performing a delegate call.\\n     *\\n     * _Available since v3.4._\\n     */\\n    function functionDelegateCall(\\n        address target,\\n        bytes memory data,\\n        string memory errorMessage\\n    ) internal returns (bytes memory) {\\n        (bool success, bytes memory returndata) = target.delegatecall(data);\\n        return verifyCallResultFromTarget(target, success, returndata, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Tool to verify that a low level call to smart-contract was successful, and revert (either by bubbling\\n     * the revert reason or using the provided one) in case of unsuccessful call or if target was not a contract.\\n     *\\n     * _Available since v4.8._\\n     */\\n    function verifyCallResultFromTarget(\\n        address target,\\n        bool success,\\n        bytes memory returndata,\\n        string memory errorMessage\\n    ) internal view returns (bytes memory) {\\n        if (success) {\\n            if (returndata.length == 0) {\\n                // only check isContract if the call was successful and the return data is empty\\n                // otherwise we already know that it was a contract\\n                require(isContract(target), \\\"Address: call to non-contract\\\");\\n            }\\n            return returndata;\\n        } else {\\n            _revert(returndata, errorMessage);\\n        }\\n    }\\n\\n    /**\\n     * @dev Tool to verify that a low level call was successful, and revert if it wasn't, either by bubbling the\\n     * revert reason or using the provided one.\\n     *\\n     * _Available since v4.3._\\n     */\\n    function verifyCallResult(\\n        bool success,\\n        bytes memory returndata,\\n        string memory errorMessage\\n    ) internal pure returns (bytes memory) {\\n        if (success) {\\n            return returndata;\\n        } else {\\n            _revert(returndata, errorMessage);\\n        }\\n    }\\n\\n    function _revert(bytes memory returndata, string memory errorMessage) private pure {\\n        // Look for revert reason and bubble it up if present\\n        if (returndata.length > 0) {\\n            // The easiest way to bubble the revert reason is using memory via assembly\\n            /// @solidity memory-safe-assembly\\n            assembly {\\n                let returndata_size := mload(returndata)\\n                revert(add(32, returndata), returndata_size)\\n            }\\n        } else {\\n            revert(errorMessage);\\n        }\\n    }\\n}\\n\",\"keccak256\":\"0x9c80f545915582e63fe206c6ce27cbe85a86fc10b9cd2a0e8c9488fb7c2ee422\",\"license\":\"MIT\"},\"contracts/Errors/Errors.sol\":{\"content\":\"// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.19;\\n\\n/// @dev Error for 0x0 address inputs\\nerror InvalidZeroInput();    \\n\\n/// @dev Error for already added items to a list\\nerror AlreadyAdded();    \\n\\n/// @dev Error for not found items in a list\\nerror NotFound();    \\n\\n/// @dev Error for hitting max TVL\\nerror MaxTVLReached();\\n\\n/// @dev Error for caller not having permissions\\nerror NotRestakeManagerAdmin();\\n\\n/// @dev Error for call not coming from deposit queue contract\\nerror NotDepositQueue();\\n\\n/// @dev Error for contract being paused\\nerror ContractPaused(); \\n\\n/// @dev Error for exceeding max basis points (100%)\\nerror OverMaxBasisPoints();\\n\\n/// @dev Error for invalid token decimals for collateral tokens (must be 18)\\nerror InvalidTokenDecimals(uint8 expected, uint8 actual);\\n\\n/// @dev Error when withdraw is already completed\\nerror WithdrawAlreadyCompleted();\\n\\n/// @dev Error when a different address tries to complete withdraw\\nerror NotOriginalWithdrawCaller(address expectedCaller);\\n\\n/// @dev Error when caller does not have OD admin role\\nerror NotOperatorDelegatorAdmin();\\n\\n/// @dev Error when caller does not have Oracle Admin role\\nerror NotOracleAdmin();\\n\\n/// @dev Error when caller is not RestakeManager contract\\nerror NotRestakeManager();\\n\\n/// @dev Errror when caller does not have ETH Restake Admin role\\nerror NotNativeEthRestakeAdmin();\\n\\n/// @dev Error when delegation address was already set - cannot be set again\\nerror DelegateAddressAlreadySet();\\n\\n/// @dev Error when caller does not have ERC20 Rewards Admin role\\nerror NotERC20RewardsAdmin();\\n\\n/// @dev Error when ending ETH fails\\nerror TransferFailed();\\n\\n/// @dev Error when caller does not have ETH Minter Burner Admin role\\nerror NotEzETHMinterBurner();\\n\\n/// @dev Error when caller does not have Token Admin role\\nerror NotTokenAdmin();\\n\\n/// @dev Error when price oracle is not configured\\nerror OracleNotFound();\\n\\n/// @dev Error when price oracle data is stale\\nerror OraclePriceExpired();\\n\\n/// @dev Error when array lengths do not match\\nerror MismatchedArrayLengths();\\n\\n/// @dev Error when caller does not have Deposit Withdraw Pauser role\\nerror NotDepositWithdrawPauser();\",\"keccak256\":\"0xcd647192cd7b75f8c5bbe0025961be050bac77adea8dee8ebd20f9cbf09d4e70\",\"license\":\"BUSL-1.1\"},\"contracts/Permissions/IRoleManager.sol\":{\"content\":\"//SPDX-License-Identifier: MIT\\npragma solidity 0.8.19;\\n\\ninterface IRoleManager {\\n    /// @dev Determines if the specified address has permissions to manage RoleManager\\n    /// @param potentialAddress Address to check\\n    function isRoleManagerAdmin(address potentialAddress) external view returns (bool);\\n\\n    /// @dev Determines if the specified address has permission to mint or burn ezETH tokens\\n    /// @param potentialAddress Address to check\\n    function isEzETHMinterBurner(address potentialAddress)\\n        external\\n        view\\n        returns (bool);\\n\\n    /// @dev Determines if the specified address has permission to update config on the OperatorDelgator Contracts\\n    /// @param potentialAddress Address to check\\n    function isOperatorDelegatorAdmin(address potentialAddress)\\n        external\\n        view\\n        returns (bool);\\n\\n    /// @dev Determines if the specified address has permission to update config on the Oracle Contract config\\n    /// @param potentialAddress Address to check\\n    function isOracleAdmin(address potentialAddress)\\n        external\\n        view\\n        returns (bool);\\n\\n    /// @dev Determines if the specified address has permission to update config on the Restake Manager\\n    /// @param potentialAddress Address to check\\n    function isRestakeManagerAdmin(address potentialAddress)\\n        external\\n        view\\n        returns (bool);\\n\\n    /// @dev Determines if the specified address has permission to update config on the Token Contract\\n    /// @param potentialAddress Address to check\\n    function isTokenAdmin(address potentialAddress)\\n        external\\n        view\\n        returns (bool);\\n    \\n    /// @dev Determines if the specified address has permission to trigger restaking of native ETH\\n    /// @param potentialAddress Address to check\\n    function isNativeEthRestakeAdmin(address potentialAddress)\\n        external\\n        view\\n        returns (bool);        \\n\\n    /// @dev Determines if the specified address has permission to sweep and deposit ERC20 Rewards\\n    /// @param potentialAddress Address to check\\n    function isERC20RewardsAdmin(address potentialAddress)\\n        external\\n        view\\n        returns (bool);        \\n    \\n    /// @dev Determines if the specified address has permission to pause deposits and withdraws\\n    /// @param potentialAddress Address to check\\n    function isDepositWithdrawPauser(address potentialAddress)\\n        external\\n        view\\n        returns (bool);\\n}\\n\",\"keccak256\":\"0xd2d340f92680be754fcf310ac593a07f8f0dc45db056caf7398e9791d95e8d43\",\"license\":\"MIT\"},\"contracts/Rewards/RewardHandler.sol\":{\"content\":\"//SPDX-License-Identifier: MIT\\npragma solidity 0.8.19;\\n\\nimport \\\"@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol\\\";\\nimport \\\"./RewardHandlerStorage.sol\\\";\\nimport \\\"@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol\\\";\\nimport \\\"../Errors/Errors.sol\\\";\\n\\n\\n/**\\n * @author  Renzo Protocol\\n * @title   RewardHandler\\n * @dev     Handles native ETH rewards deposited on the execution layer from validator nodes.  Forwards them\\n * to the DepositQueue contract for restaking.\\n * @notice  .\\n */\\ncontract RewardHandler is Initializable, ReentrancyGuardUpgradeable, RewardHandlerStorageV1 {\\n\\n    /// @dev Allows only a whitelisted address to trigger native ETH staking\\n    modifier onlyNativeEthRestakeAdmin() {\\n        if(!roleManager.isNativeEthRestakeAdmin(msg.sender)) revert NotNativeEthRestakeAdmin();\\n        _;\\n    }\\n\\n    /// @dev Allows only a whitelisted address to configure the contract\\n    modifier onlyRestakeManagerAdmin() {\\n        if(!roleManager.isRestakeManagerAdmin(msg.sender)) revert NotRestakeManagerAdmin();\\n        _;\\n    }\\n\\n    event RewardDestinationUpdated(\\n        address rewardDestination        \\n    );\\n\\n    /// @dev Prevents implementation contract from being initialized.\\n    /// @custom:oz-upgrades-unsafe-allow constructor\\n    constructor() {\\n        _disableInitializers();\\n    }\\n\\n    /// @dev Initializes the contract with initial vars\\n    function initialize(IRoleManager _roleManager, address _rewardDestination) public initializer {\\n        __ReentrancyGuard_init();\\n\\n        if(address(_roleManager) == address(0x0)) revert InvalidZeroInput(); \\n        if(address(_rewardDestination) == address(0x0)) revert InvalidZeroInput(); \\n        \\n        roleManager = _roleManager;   \\n        rewardDestination = _rewardDestination;\\n\\n        emit RewardDestinationUpdated(_rewardDestination);\\n    }\\n\\n    /// @dev Handle ETH sent to this contract from outside the protocol - e.g. rewards\\n    receive() external payable nonReentrant { \\n    }\\n\\n    /// @dev Forwards all native ETH rewards to the DepositQueue contract\\n    function forwardRewards() external nonReentrant onlyNativeEthRestakeAdmin {\\n        uint256 balance = address(this).balance;\\n        if(balance == 0) {\\n          return;\\n        }\\n\\n        (bool success, ) = rewardDestination.call{value: balance}(\\\"\\\");\\n        if(!success) revert TransferFailed();\\n    }\\n\\n    function setRewardDestination(address _rewardDestination) external nonReentrant onlyRestakeManagerAdmin {\\n        if(address(_rewardDestination) == address(0x0)) revert InvalidZeroInput(); \\n\\n        rewardDestination = _rewardDestination;\\n\\n        emit RewardDestinationUpdated(_rewardDestination);\\n    }\\n}\",\"keccak256\":\"0x2ef3ba32632355192f025b95febe41d57bcbfcb7a3b264f5c9e358defdc05ec8\",\"license\":\"MIT\"},\"contracts/Rewards/RewardHandlerStorage.sol\":{\"content\":\"// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.19;\\n\\nimport \\\"../Permissions/IRoleManager.sol\\\";\\n\\nabstract contract RewardHandlerStorageV1 {    \\n    /// @dev reference to the RoleManager contract\\n    IRoleManager public roleManager;\\n\\n    /// @dev the address of the depositQueue contract\\n    address public rewardDestination;\\n}\\n\",\"keccak256\":\"0x6fb2a2b8c5a9795af8c7da64256dc2ed11065be4d1697c0e1399c57d7ed38a58\",\"license\":\"BUSL-1.1\"}},\"version\":1}",
+  "bytecode": "0x608060405234801561001057600080fd5b5061001961001e565b6100dd565b600054610100900460ff161561008a5760405162461bcd60e51b815260206004820152602760248201527f496e697469616c697a61626c653a20636f6e747261637420697320696e697469604482015266616c697a696e6760c81b606482015260840160405180910390fd5b60005460ff908116146100db576000805460ff191660ff9081179091556040519081527f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989060200160405180910390a15b565b6106df806100ec6000396000f3fe60806040526004361061004d5760003560e01c8062435da51461006a578063485cc955146100a65780638457d067146100c6578063edb7b677146100e6578063fda45d86146100fb57600080fd5b366100655761005a61011b565b61006360018055565b005b600080fd5b34801561007657600080fd5b5060335461008a906001600160a01b031681565b6040516001600160a01b03909116815260200160405180910390f35b3480156100b257600080fd5b506100636100c13660046105df565b61017f565b3480156100d257600080fd5b506100636100e1366004610618565b610341565b3480156100f257600080fd5b50610063610456565b34801561010757600080fd5b5060345461008a906001600160a01b031681565b6002600154036101725760405162461bcd60e51b815260206004820152601f60248201527f5265656e7472616e637947756172643a207265656e7472616e742063616c6c0060448201526064015b60405180910390fd5b6002600155565b60018055565b600054610100900460ff161580801561019f5750600054600160ff909116105b806101b95750303b1580156101b9575060005460ff166001145b61021c5760405162461bcd60e51b815260206004820152602e60248201527f496e697469616c697a61626c653a20636f6e747261637420697320616c72656160448201526d191e481a5b9a5d1a585b1a5e995960921b6064820152608401610169565b6000805460ff19166001179055801561023f576000805461ff0019166101001790555b610247610579565b6001600160a01b03831661026e5760405163862a606760e01b815260040160405180910390fd5b6001600160a01b0382166102955760405163862a606760e01b815260040160405180910390fd5b603380546001600160a01b038581166001600160a01b0319928316179092556034805492851692909116821790556040519081527f7d9fa86fef61a9878952110711f67d06cd5e6ca88298a8217332f53446e1f1bf9060200160405180910390a1801561033c576000805461ff0019169055604051600181527f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989060200160405180910390a15b505050565b61034961011b565b603354604051633edaabc560e11b81523360048201526001600160a01b0390911690637db5578a90602401602060405180830381865afa158015610391573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103b5919061063c565b6103d257604051632ec79ab960e01b815260040160405180910390fd5b6001600160a01b0381166103f95760405163862a606760e01b815260040160405180910390fd5b603480546001600160a01b0319166001600160a01b0383169081179091556040519081527f7d9fa86fef61a9878952110711f67d06cd5e6ca88298a8217332f53446e1f1bf9060200160405180910390a161045360018055565b50565b61045e61011b565b6033546040516358e3de6f60e01b81523360048201526001600160a01b03909116906358e3de6f90602401602060405180830381865afa1580156104a6573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906104ca919061063c565b6104e75760405163bcefa34f60e01b815260040160405180910390fd5b4760008190036104f7575061056e565b6034546040516000916001600160a01b03169083908381818185875af1925050503d8060008114610544576040519150601f19603f3d011682016040523d82523d6000602084013e610549565b606091505b505090508061056b576040516312171d8360e31b815260040160405180910390fd5b50505b61057760018055565b565b600054610100900460ff166105a05760405162461bcd60e51b81526004016101699061065e565b610577600054610100900460ff166101795760405162461bcd60e51b81526004016101699061065e565b6001600160a01b038116811461045357600080fd5b600080604083850312156105f257600080fd5b82356105fd816105ca565b9150602083013561060d816105ca565b809150509250929050565b60006020828403121561062a57600080fd5b8135610635816105ca565b9392505050565b60006020828403121561064e57600080fd5b8151801515811461063557600080fd5b6020808252602b908201527f496e697469616c697a61626c653a20636f6e7472616374206973206e6f74206960408201526a6e697469616c697a696e6760a81b60608201526080019056fea26469706673582212209219423ec37a80d67fe28dd0cd12365e25b7aee9e472cd2bc45e1c74815d093464736f6c63430008130033",
+  "deployedBytecode": "0x60806040526004361061004d5760003560e01c8062435da51461006a578063485cc955146100a65780638457d067146100c6578063edb7b677146100e6578063fda45d86146100fb57600080fd5b366100655761005a61011b565b61006360018055565b005b600080fd5b34801561007657600080fd5b5060335461008a906001600160a01b031681565b6040516001600160a01b03909116815260200160405180910390f35b3480156100b257600080fd5b506100636100c13660046105df565b61017f565b3480156100d257600080fd5b506100636100e1366004610618565b610341565b3480156100f257600080fd5b50610063610456565b34801561010757600080fd5b5060345461008a906001600160a01b031681565b6002600154036101725760405162461bcd60e51b815260206004820152601f60248201527f5265656e7472616e637947756172643a207265656e7472616e742063616c6c0060448201526064015b60405180910390fd5b6002600155565b60018055565b600054610100900460ff161580801561019f5750600054600160ff909116105b806101b95750303b1580156101b9575060005460ff166001145b61021c5760405162461bcd60e51b815260206004820152602e60248201527f496e697469616c697a61626c653a20636f6e747261637420697320616c72656160448201526d191e481a5b9a5d1a585b1a5e995960921b6064820152608401610169565b6000805460ff19166001179055801561023f576000805461ff0019166101001790555b610247610579565b6001600160a01b03831661026e5760405163862a606760e01b815260040160405180910390fd5b6001600160a01b0382166102955760405163862a606760e01b815260040160405180910390fd5b603380546001600160a01b038581166001600160a01b0319928316179092556034805492851692909116821790556040519081527f7d9fa86fef61a9878952110711f67d06cd5e6ca88298a8217332f53446e1f1bf9060200160405180910390a1801561033c576000805461ff0019169055604051600181527f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989060200160405180910390a15b505050565b61034961011b565b603354604051633edaabc560e11b81523360048201526001600160a01b0390911690637db5578a90602401602060405180830381865afa158015610391573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103b5919061063c565b6103d257604051632ec79ab960e01b815260040160405180910390fd5b6001600160a01b0381166103f95760405163862a606760e01b815260040160405180910390fd5b603480546001600160a01b0319166001600160a01b0383169081179091556040519081527f7d9fa86fef61a9878952110711f67d06cd5e6ca88298a8217332f53446e1f1bf9060200160405180910390a161045360018055565b50565b61045e61011b565b6033546040516358e3de6f60e01b81523360048201526001600160a01b03909116906358e3de6f90602401602060405180830381865afa1580156104a6573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906104ca919061063c565b6104e75760405163bcefa34f60e01b815260040160405180910390fd5b4760008190036104f7575061056e565b6034546040516000916001600160a01b03169083908381818185875af1925050503d8060008114610544576040519150601f19603f3d011682016040523d82523d6000602084013e610549565b606091505b505090508061056b576040516312171d8360e31b815260040160405180910390fd5b50505b61057760018055565b565b600054610100900460ff166105a05760405162461bcd60e51b81526004016101699061065e565b610577600054610100900460ff166101795760405162461bcd60e51b81526004016101699061065e565b6001600160a01b038116811461045357600080fd5b600080604083850312156105f257600080fd5b82356105fd816105ca565b9150602083013561060d816105ca565b809150509250929050565b60006020828403121561062a57600080fd5b8135610635816105ca565b9392505050565b60006020828403121561064e57600080fd5b8151801515811461063557600080fd5b6020808252602b908201527f496e697469616c697a61626c653a20636f6e7472616374206973206e6f74206960408201526a6e697469616c697a696e6760a81b60608201526080019056fea26469706673582212209219423ec37a80d67fe28dd0cd12365e25b7aee9e472cd2bc45e1c74815d093464736f6c63430008130033",
+  "devdoc": {
+    "author": "Renzo Protocol",
+    "details": "Handles native ETH rewards deposited on the execution layer from validator nodes.  Forwards them to the DepositQueue contract for restaking.",
+    "errors": {
+      "InvalidZeroInput()": [
+        {
+          "details": "Error for 0x0 address inputs"
+        }
+      ],
+      "NotNativeEthRestakeAdmin()": [
+        {
+          "details": "Errror when caller does not have ETH Restake Admin role"
+        }
+      ],
+      "NotRestakeManagerAdmin()": [
+        {
+          "details": "Error for caller not having permissions"
+        }
+      ],
+      "TransferFailed()": [
+        {
+          "details": "Error when ending ETH fails"
+        }
+      ]
+    },
+    "events": {
+      "Initialized(uint8)": {
+        "details": "Triggered when the contract has been initialized or reinitialized."
+      }
+    },
+    "kind": "dev",
+    "methods": {
+      "constructor": {
+        "custom:oz-upgrades-unsafe-allow": "constructor",
+        "details": "Prevents implementation contract from being initialized."
+      },
+      "forwardRewards()": {
+        "details": "Forwards all native ETH rewards to the DepositQueue contract"
+      },
+      "initialize(address,address)": {
+        "details": "Initializes the contract with initial vars"
+      }
+    },
+    "title": "RewardHandler",
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "notice": ".",
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 461,
+        "contract": "contracts/Rewards/RewardHandler.sol:RewardHandler",
+        "label": "_initialized",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_uint8"
+      },
+      {
+        "astId": 464,
+        "contract": "contracts/Rewards/RewardHandler.sol:RewardHandler",
+        "label": "_initializing",
+        "offset": 1,
+        "slot": "0",
+        "type": "t_bool"
+      },
+      {
+        "astId": 637,
+        "contract": "contracts/Rewards/RewardHandler.sol:RewardHandler",
+        "label": "_status",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 706,
+        "contract": "contracts/Rewards/RewardHandler.sol:RewardHandler",
+        "label": "__gap",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_array(t_uint256)49_storage"
+      },
+      {
+        "astId": 13439,
+        "contract": "contracts/Rewards/RewardHandler.sol:RewardHandler",
+        "label": "roleManager",
+        "offset": 0,
+        "slot": "51",
+        "type": "t_contract(IRoleManager)11263"
+      },
+      {
+        "astId": 13442,
+        "contract": "contracts/Rewards/RewardHandler.sol:RewardHandler",
+        "label": "rewardDestination",
+        "offset": 0,
+        "slot": "52",
+        "type": "t_address"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_array(t_uint256)49_storage": {
+        "base": "t_uint256",
+        "encoding": "inplace",
+        "label": "uint256[49]",
+        "numberOfBytes": "1568"
+      },
+      "t_bool": {
+        "encoding": "inplace",
+        "label": "bool",
+        "numberOfBytes": "1"
+      },
+      "t_contract(IRoleManager)11263": {
+        "encoding": "inplace",
+        "label": "contract IRoleManager",
+        "numberOfBytes": "20"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      },
+      "t_uint8": {
+        "encoding": "inplace",
+        "label": "uint8",
+        "numberOfBytes": "1"
+      }
+    }
+  }
+}

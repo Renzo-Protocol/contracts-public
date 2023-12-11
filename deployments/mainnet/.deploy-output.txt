@@ -1,0 +1,66 @@
+Nothing to compile
+No need to generate any newer typings.
+Deploying Role Manager
+Deploying RoleManager
+deploying "DefaultProxyAdmin" (tx: 0x32a64d1413dd20e1ee4c26b82ac2b8e72a67b9b23d9957bfc7755c39e2014889)...: deployed at 0x91625601e2BbBEb7171C40c79FadBCFbFf6A1982 with 644163 gas
+deploying "RoleManager_Implementation" (tx: 0x023e324f270bb50919eeb3d96715fae11533c2fb05e4e8b98e98df2b3cbd334b)...: deployed at 0x09aA40B6e0e768a04d650302e1879DCED6b7666E with 832607 gas
+deploying "RoleManager_Proxy" (tx: 0x9331b1a305e77b53fcf6012be4571275fccc747f51806fb4700c02617d9f913a)...: deployed at 0x4994EFc62101A9e3F885d872514c2dC7b3235849 with 771460 gas
+Deployed RoleManager at:  0x4994EFc62101A9e3F885d872514c2dC7b3235849
+Granting RESTAKE_MANAGER_ADMIN to the deploying wallet
+Granting TOKEN_ADMIN to the deploying wallet
+Deploying Token
+Deploying EzEthToken
+reusing "DefaultProxyAdmin" at 0x91625601e2BbBEb7171C40c79FadBCFbFf6A1982
+deploying "EzEthToken_Implementation" (tx: 0x5443fc11c7252fae293ce877eddba08c7eb5ff5f9a29e1658cbfc22ace9cd067)...: deployed at 0x67D4E4031Efc2288df1E257CA2d5c596d8Bd86ae with 1036931 gas
+deploying "EzEthToken_Proxy" (tx: 0xaf05c89f7b29f1dd7eff4bbf87807308ca2a3ad96a64e75011339fbd34c6a207)...: deployed at 0xbf5495Efe5DB9ce00f80364C8B423567e58d2110 with 814314 gas
+Deployed ezETH at:  0xbf5495Efe5DB9ce00f80364C8B423567e58d2110
+Setting paused to true for ezETH
+Deploying RenzoOracle
+Deploying RenzoOracle
+reusing "DefaultProxyAdmin" at 0x91625601e2BbBEb7171C40c79FadBCFbFf6A1982
+deploying "RenzoOracle_Implementation" (tx: 0xf9ce87b3d4e578978183ed67484fc2c311c3fb821b475568f9faef5da0803d0b)...: deployed at 0x94Eb8aF1bdfaA82fd50C34d34c4BcA2EFd8c79BF with 795495 gas
+deploying "RenzoOracle_Proxy" (tx: 0x9c0e61084130d9ce4581077d1d3bd6cb2fca99f5ad8dfd2ec842872482188b0b)...: deployed at 0x5a12796f7e7EBbbc8a402667d266d2e65A814042 with 791280 gas
+Deployed RenzoOracle at:  0x5a12796f7e7EBbbc8a402667d266d2e65A814042
+Deploying Restake Manager
+Deploying DepositQueue
+reusing "DefaultProxyAdmin" at 0x91625601e2BbBEb7171C40c79FadBCFbFf6A1982
+deploying "DepositQueue_Implementation" (tx: 0x85a33d9bc59f26d2174ca57691f3d785d4a56076e7c16ec97a9f99ca30c30cef)...: deployed at 0xc23535D7F3634634a1E2cF101863db64a7054410 with 1160662 gas
+deploying "DepositQueue_Proxy" (tx: 0xbeb8674f738de573223774547707ba96e11cc7f8c08c4896f664eea726686ae6)...: deployed at 0xf2F305D14DCD8aaef887E0428B3c9534795D0d60 with 791238 gas
+Deploying RestakeManager
+reusing "DefaultProxyAdmin" at 0x91625601e2BbBEb7171C40c79FadBCFbFf6A1982
+deploying "RestakeManager_Implementation" (tx: 0xf8b461fe9edb29feedd4fa708463bbead65e2b45a2de55f9fac569cef4fa4f91)...: deployed at 0xDC5a2FDC997897646f4F602826a8691e7B6EEc1d with 3346600 gas
+deploying "RestakeManager_Proxy" (tx: 0xd944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa)...: deployed at 0x74a09653A083691711cF8215a6ab074BB4e99ef5 with 904923 gas
+Deployed RestakeManager at:  0x74a09653A083691711cF8215a6ab074BB4e99ef5
+Granting RX_ETH_MINTER_BURNER to the restake manager
+Setting Restake Manager on deposit queue
+Deploying RewardHandler
+Deploying RewardHandler
+reusing "DefaultProxyAdmin" at 0x91625601e2BbBEb7171C40c79FadBCFbFf6A1982
+deploying "RewardHandler_Implementation" (tx: 0x69634ad1e76bc8c0bbd6742d9beb0f369816b50837550d5519405b002f346e5d)...: deployed at 0xed62815F74Cf460245C2069209a722cdA3513cBF with 459809 gas
+deploying "RewardHandler_Proxy" (tx: 0xf36e4154d95784f8134e8b43984dfacf1b463743453b48a5c514fab3dd002b07)...: deployed at 0x22eEC85ba6a5cD97eAd4728eA1c69e1D9c6fa778 with 815047 gas
+Setting reward fees
+Setting max deposit TVL 32000000000000000000n
+Deploying OD
+reusing "DefaultProxyAdmin" at 0x91625601e2BbBEb7171C40c79FadBCFbFf6A1982
+deploying "OperatorDelegator" (tx: 0x8673d06e82287423bf2a2335a3bab56c11942b34cc150965d3f2d6736599dae9)...: deployed at 0x1dbbF25286e9bD42Bff4d4914c60B7559F8A7be8 with 2044952 gas
+deploying "OperatorDelegator1_Proxy" (tx: 0x763ec7105787392967ed62417b0f37034269880566ca3a015e14bb85b6433047)...: deployed at 0xbAf5f3A05BD7Af6f3a0BBA207803bf77e2657c8F with 1239643 gas
+Finished deploying Operator Delegator 0xbAf5f3A05BD7Af6f3a0BBA207803bf77e2657c8F
+Adding operator delegators to restake manager
+Revoking RESTAKE_MANAGER_ADMIN from the deploying wallet
+Revoking TOKEN_ADMIN from the deploying wallet
+Granting pause TOKEN_ADMIN role to  0xD1e6626310fD54Eceb5b9a51dA2eC329D6D4B68A
+Granting pause DEPOSIT_WITHDRAW_PAUSER role to  0xD1e6626310fD54Eceb5b9a51dA2eC329D6D4B68A
+Granting DEFAULT_ADMIN_ROLE to multisig
+Granting NATIVE_ETH_RESTAKE_ADMIN to wallet to allow staking ETH
+Done
+
+
+Upgrading Token
+Deploying EzEthToken
+reusing "DefaultProxyAdmin" at 0x91625601e2BbBEb7171C40c79FadBCFbFf6A1982
+deploying "EzEthToken_Implementation" (tx: 0xab679797a96516a745a8d27b61da491a88d8f84fe39a3fbe18623ed9e5f719d1)...: deployed at 0x1e756B7bCca7B26FB9D85344B3525F5559bbacb0 with 1014910 gas
+executing DefaultProxyAdmin.upgrade (tx: 0x51426833f5f5564d438c83ad262717466fa45c5dad6812cee46773516de98606) ...: performed with 38688 gas
+Deployed ezETH at:  0xbf5495Efe5DB9ce00f80364C8B423567e58d2110
+Done
+
+

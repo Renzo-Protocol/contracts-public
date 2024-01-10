@@ -46,7 +46,8 @@ contract RestakeManager is
         address depositor,
         IERC20 token,
         uint256 amount,
-        uint256 ezETHMinted
+        uint256 ezETHMinted,
+        uint256 referralId
     );
 
     /// @dev Event emitted when a new withdraw is started
@@ -459,6 +460,19 @@ contract RestakeManager is
 
     /**
      * @notice  Deposits an ERC20 collateral token into the protocol
+     * @dev     Convenience function to deposit without a referral ID and backwards compatibility
+     * @param   _collateralToken  The address of the collateral ERC20 token to deposit
+     * @param   _amount The amount of the collateral token to deposit in base units
+     */
+    function deposit(
+        IERC20 _collateralToken,
+        uint256 _amount
+    ) external {
+        deposit(_collateralToken, _amount, 0);
+    }
+
+    /**
+     * @notice  Deposits an ERC20 collateral token into the protocol
      * @dev
      * The msg.sender must pre-approve this contract to move the tokens into the protocol
      * To deposit, the contract will:
@@ -469,11 +483,13 @@ contract RestakeManager is
      * The collateral token specified must be pre-configured to be allowed in the protocol
      * @param   _collateralToken  The address of the collateral ERC20 token to deposit
      * @param   _amount The amount of the collateral token to deposit in base units
+     * @param   _referralId The referral ID to use for the deposit (can be 0 if none)
      */
     function deposit(
         IERC20 _collateralToken,
-        uint256 _amount
-    ) external nonReentrant notPaused {
+        uint256 _amount,
+        uint256 _referralId
+    ) public nonReentrant notPaused {
         // Verify collateral token is in the list - call will revert if not found
         getCollateralTokenIndex(_collateralToken);
 
@@ -526,7 +542,7 @@ contract RestakeManager is
         ezETH.mint(msg.sender, ezETHToMint);
 
         // Emit the deposit event
-        emit Deposit(msg.sender, _collateralToken, _amount, ezETHToMint);
+        emit Deposit(msg.sender, _collateralToken, _amount, ezETHToMint, _referralId);
     }
 
     /// @dev 
@@ -665,10 +681,19 @@ contract RestakeManager is
 
     /**
      * @notice  Allows a user to deposit ETH into the protocol and get back ezETH
+     * @dev     Convenience function to deposit without a referral ID and backwards compatibility
+     */
+    function depositETH() external payable {
+        depositETH(0);
+    }
+
+    /**
+     * @notice  Allows a user to deposit ETH into the protocol and get back ezETH
      * @dev     The amount of ETH sent into this function will be sent to the deposit queue to be 
      * staked later by a validator.  Once staked it will be deposited into EigenLayer.
+     * * @param   _referralId  The referral ID to use for the deposit (can be 0 if none)
      */
-    function depositETH() external payable nonReentrant notPaused {
+    function depositETH(uint256 _referralId) public payable nonReentrant notPaused {
         // Get the total TVL
         (
             ,
@@ -695,7 +720,7 @@ contract RestakeManager is
         ezETH.mint(msg.sender, ezETHToMint);
 
         // Emit the deposit event
-        emit Deposit(msg.sender, IERC20(address(0x0)), msg.value, ezETHToMint);
+        emit Deposit(msg.sender, IERC20(address(0x0)), msg.value, ezETHToMint, _referralId);
     }
 
     /// @dev Called by the deposit queue to stake ETH to a validator

@@ -25,6 +25,7 @@ contract OperatorDelegator is
 
     event TokenStrategyUpdated(IERC20 token, IStrategy strategy);
     event DelegationAddressUpdated(address delegateAddress);
+    event RewardsForwarded(address rewardDestination, uint256 amount);
 
     event WithdrawStarted(
         bytes32 withdrawRoot,
@@ -282,9 +283,12 @@ contract OperatorDelegator is
         eigenPod.withdrawBeforeRestaking();
     }
 
-    /// @dev Handle ETH sent to this contract - will get forwarded to the deposit queue for restaking
-    receive() external payable nonReentrant { 
-        (bool success, ) = address(restakeManager.depositQueue()).call{value: address(this).balance}("");
+    /// @dev Handle ETH sent to this contract - will get forwarded to the deposit queue for restaking as a protocol reward
+    receive() external payable nonReentrant {      
+        address destination = address(restakeManager.depositQueue());
+        (bool success, ) = destination.call{value: msg.value}("");
         if(!success) revert TransferFailed();
+
+        emit RewardsForwarded(destination, msg.value);
     }
 }

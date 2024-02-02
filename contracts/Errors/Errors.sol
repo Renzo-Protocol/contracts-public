@@ -72,3 +72,15 @@ error MismatchedArrayLengths();
 
 /// @dev Error when caller does not have Deposit Withdraw Pauser role
 error NotDepositWithdrawPauser();
+
+/// @dev Error when an individual token TVL is over the max
+error MaxTokenTVLReached();
+
+/// @dev Error when Oracle price is invalid
+error InvalidOraclePrice();
+
+/// @dev Error when calling an invalid function
+error NotImplemented();
+
+/// @dev Error when calculating token amounts is invalid
+error InvalidTokenAmount();

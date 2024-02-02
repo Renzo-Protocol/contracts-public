@@ -59,3 +59,7 @@ abstract contract RestakeManagerStorageV1 is IRestakeManager {
     /// @dev Reference to the deposit queue contract
     IDepositQueue public depositQueue;
 }
+
+abstract contract RestakeManagerStorageV2 is RestakeManagerStorageV1 {    
+    mapping(IERC20 => uint256) public collateralTokenTvlLimits;
+}

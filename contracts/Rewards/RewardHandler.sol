@@ -51,12 +51,19 @@ contract RewardHandler is Initializable, ReentrancyGuardUpgradeable, RewardHandl
         emit RewardDestinationUpdated(_rewardDestination);
     }
 
-    /// @dev Handle ETH sent to this contract from outside the protocol - e.g. rewards
-    receive() external payable nonReentrant { 
+    /// @dev Forwards all native ETH rewards to the DepositQueue contract
+    /// Handle ETH sent to this contract from outside the protocol that trigger contract execution - e.g. rewards
+    receive() external payable nonReentrant {
+        _forwardETH();
     }
 
     /// @dev Forwards all native ETH rewards to the DepositQueue contract
+    /// Handle ETH sent to this contract from validator nodes that do not trigger contract execution - e.g. rewards
     function forwardRewards() external nonReentrant onlyNativeEthRestakeAdmin {
+        _forwardETH();
+    }
+
+    function _forwardETH() internal {
         uint256 balance = address(this).balance;
         if(balance == 0) {
           return;

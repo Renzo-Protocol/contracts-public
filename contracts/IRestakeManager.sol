@@ -11,4 +11,9 @@ interface IRestakeManager {
         uint256 _amount
     ) external;
   function depositQueue() external view returns (IDepositQueue);
+
+  function calculateTVLs()
+        external
+        view
+        returns (uint256[][] memory, uint256[] memory, uint256);
 }

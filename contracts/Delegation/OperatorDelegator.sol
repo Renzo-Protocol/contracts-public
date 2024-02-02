@@ -225,6 +225,7 @@ contract OperatorDelegator is
         );
 
         // Send tokens to the specified address
+        // TODO: do not user balance of
         _token.safeTransfer(_sendToAddress, _token.balanceOf(address(this)));
     }
 
@@ -239,6 +240,8 @@ contract OperatorDelegator is
     function getStakedETHBalance() external view returns (uint256) {
         // TODO: Once withdrawals are enabled, allow this to handle pending withdraws and a potential negative share balance in the EigenPodManager ownershares        
         // TODO: Once upgraded to M2, add back in staked verified ETH, e.g. + uint256(strategyManager.stakerStrategyShares(address(this), strategyManager.beaconChainETHStrategy()))
+        // TODO: once M2 is released, there is a possibility someone could call Verify() to try and mess up the TVL calcs (we would double count the stakedButNotVerifiedEth + actual verified ETH in the EigenPod)
+        //       - we should track the validator node's verified status to ensure this doesn't happen
         return stakedButNotVerifiedEth + address(eigenPod).balance;
     }
 

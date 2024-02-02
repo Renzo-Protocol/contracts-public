@@ -26,7 +26,7 @@ import "./Errors/Errors.sol";
 contract RestakeManager is    
     Initializable,
     ReentrancyGuardUpgradeable,
-    RestakeManagerStorageV1
+    RestakeManagerStorageV2
 {
     using SafeERC20 for IERC20;
     using SafeERC20Upgradeable for IEzEthToken;
@@ -66,6 +66,12 @@ contract RestakeManager is
         IERC20 token,
         uint256 amount,
         uint256 ezETHBurned
+    );
+
+    /// @dev Event emitted when a token TVL Limit is updated
+    event CollateralTokenTvlUpdated(
+        IERC20 token,
+        uint256 tvl
     );
 
     /// @dev Allows only a whitelisted address to configure the contract
@@ -491,11 +497,11 @@ contract RestakeManager is
         uint256 _referralId
     ) public nonReentrant notPaused {
         // Verify collateral token is in the list - call will revert if not found
-        getCollateralTokenIndex(_collateralToken);
+        uint256 tokenIndex = getCollateralTokenIndex(_collateralToken);
 
         // Get the TVLs for each operator delegator and the total TVL
         (
-            ,
+            uint256[][] memory operatorDelegatorTokenTVLs,
             uint256[] memory operatorDelegatorTVLs,
             uint256 totalTVL
         ) = calculateTVLs();
@@ -506,9 +512,27 @@ contract RestakeManager is
             _amount
         );
 
-        // Enforce TVL limit if set
+        // Enforce TVL limit if set, 0 means the check is not enabled
         if(maxDepositTVL != 0 && totalTVL + collateralTokenValue > maxDepositTVL) {
             revert MaxTVLReached();
+        }
+
+        // Enforce individual token TVL limit if set, 0 means the check is not enabled
+        if(collateralTokenTvlLimits[_collateralToken] != 0) {
+
+            // Track the current token's TVL
+            uint256 currentTokenTVL = 0;
+
+            // For each OD, add up the token TVLs
+            uint256 odLength = operatorDelegatorTokenTVLs.length;
+            for (uint256 i = 0; i < odLength;) {
+                currentTokenTVL += operatorDelegatorTokenTVLs[i][tokenIndex];
+                unchecked{++i;}        
+            }
+
+            // Check if it is over the limit
+            if(currentTokenTVL + collateralTokenValue > collateralTokenTvlLimits[_collateralToken])
+                revert MaxTokenTVLReached();
         }
 
 
@@ -545,139 +569,6 @@ contract RestakeManager is
         emit Deposit(msg.sender, _collateralToken, _amount, ezETHToMint, _referralId);
     }
 
-    /// @dev 
-
-    /**
-     * @notice  Starts a 2 phase withdraw of a collateral token from the protocol in exchange for ezETH
-     * @dev  The msg.sender must pre-approve this contract to move the ezETH into the protocol
-     * The amount of tokens the user is requesting must be available to withdraw from a single OperatorDelegator
-     * The OD will be chosen based on the weightings and current value held in each OD on Eigenlayer
-     * To complete the withdaw, the caller must call completeWithdraw after the withdraw period has passed
-     * The ezETH will be held in this contract until the withdraw is completed
-     * @param   _ezEThToBurn  The amount of ezETH to burn in base units
-     * @param   _tokenToWithdraw  The address of the collateral ERC20 token to withdraw
-     * @return  bytes32  The withdrawal root of the EigenLayer deposit
-     */
-    function startWithdraw(
-        uint256 _ezEThToBurn,
-        IERC20 _tokenToWithdraw
-    ) external nonReentrant notPaused returns (bytes32) {
-        // Move the ezETH into this contract
-        ezETH.safeTransferFrom(msg.sender, address(this), _ezEThToBurn);
-
-        // Get the TVLs for each operator delegator and the total TVL
-        (
-            uint256[][] memory operatorDelegatorTokenTVLs,
-            uint256[] memory operatorDelegatorTVLs,
-            uint256 totalTVL
-        ) = calculateTVLs();
-
-        // Get the value of the ezETH being burned
-        uint256 ezETHValue = renzoOracle.calculateRedeemAmount(
-            _ezEThToBurn,
-            ezETH.totalSupply(),
-            totalTVL
-        );
-
-        // Find the token index
-        uint256 tokenIndex = getCollateralTokenIndex(_tokenToWithdraw);
-
-        // Choose the OD to withdraw from
-        IOperatorDelegator operatorDelegator = chooseOperatorDelegatorForWithdraw(
-                tokenIndex,
-                ezETHValue,
-                operatorDelegatorTokenTVLs,
-                operatorDelegatorTVLs,
-                totalTVL
-            );
-
-        // Get the number of tokens to withdraw from the value
-        uint256 numTokensToWithdraw = renzoOracle.lookupTokenAmountFromValue(
-            _tokenToWithdraw,
-            ezETHValue
-        );
-
-        // Start withdraw period
-        bytes32 withdrawalRoot = operatorDelegator.startWithdrawal(
-            _tokenToWithdraw,
-            numTokensToWithdraw
-        );
-
-        // Save off pending withdraw, including withdrawal root, how much ezETH to burn, and where to send the tokens on completion
-        pendingWithdrawals[withdrawalRoot] = PendingWithdrawal({
-            ezETHToBurn: _ezEThToBurn,
-            tokenToWithdraw: _tokenToWithdraw,
-            tokenAmountToWithdraw: numTokensToWithdraw,
-            withdrawer: msg.sender,
-            operatorDelegator: operatorDelegator,
-            completed: false
-        });
-
-        // Emit the withdraw started event
-        emit UserWithdrawStarted(
-            withdrawalRoot,
-            msg.sender,
-            _tokenToWithdraw,
-            numTokensToWithdraw,
-            _ezEThToBurn
-        );
-
-        return withdrawalRoot;
-    }
-
-    /// @dev 
-    /// 
-    /// @return The amount of tokens withdrawn
-    /**
-     * @notice  Completes a 2 phase withdraw of a collateral token from the protocol
-     * @dev     Caller must have called startWithdraw() and waited for the withdraw period to pass
-     * If the EigenLayer withdraw is completed, the tokens requested will be sent to the withdrawer
-     * The ezETH deposited in startWithdraw() will be burned from this contract
-     * @param   withdrawal  The data from startWithdraw()
-     * @param   middlewareTimesIndex  From EigenLayer - not used in M1 release (can be 0)
-     * @return  uint256  The amount of tokens withdrawn
-     */
-    function completeWithdraw(
-        IStrategyManager.QueuedWithdrawal calldata withdrawal,
-        uint256 middlewareTimesIndex
-    ) external nonReentrant notPaused returns (uint256) {
-        // Get the withdrawal root for the withdrawal
-        bytes32 withdrawalRoot = strategyManager.calculateWithdrawalRoot(
-            withdrawal
-        );
-
-        // Get and verify the pending withdraw
-        PendingWithdrawal memory pendingWithdrawal = pendingWithdrawals[
-            withdrawalRoot
-        ];
-        if(pendingWithdrawal.completed) revert WithdrawAlreadyCompleted();
-        if(pendingWithdrawal.withdrawer != msg.sender) revert NotOriginalWithdrawCaller(pendingWithdrawal.withdrawer);
-
-        // Complete the withdraw with the Operator Delegator
-        pendingWithdrawal.operatorDelegator.completeWithdrawal(
-            withdrawal,
-            pendingWithdrawal.tokenToWithdraw,
-            middlewareTimesIndex,
-            msg.sender
-        );
-
-        // Burn the ezETH from this contract
-        ezETH.burn(address(this), pendingWithdrawal.ezETHToBurn);
-
-        // Mark the pending withdraw as completed
-        pendingWithdrawals[withdrawalRoot].completed = true;
-
-        // Emit the withdraw completed event
-        emit UserWithdrawCompleted(
-            withdrawalRoot,
-            msg.sender,
-            pendingWithdrawal.tokenToWithdraw,
-            pendingWithdrawal.tokenAmountToWithdraw,
-            pendingWithdrawal.ezETHToBurn
-        );
-
-        return pendingWithdrawal.tokenAmountToWithdraw;
-    }
 
     /**
      * @notice  Allows a user to deposit ETH into the protocol and get back ezETH
@@ -808,5 +699,15 @@ contract RestakeManager is
         }
 
         return totalRewards;
+    }
+    
+    function setTokenTvlLimit(IERC20 _token, uint256 _limit) external onlyRestakeManagerAdmin {
+        // Verify collateral token is in the list - call will revert if not found
+        getCollateralTokenIndex(_token);
+
+        // Set the limit
+        collateralTokenTvlLimits[_token] = _limit;
+
+        emit CollateralTokenTvlUpdated(_token, _limit);
     }
 }

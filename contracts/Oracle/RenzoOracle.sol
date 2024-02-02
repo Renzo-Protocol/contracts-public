@@ -70,6 +70,7 @@ contract RenzoOracle is
 
         (, int256 price, , uint256 timestamp, ) = oracle.latestRoundData();
         if(timestamp < block.timestamp - MAX_TIME_WINDOW) revert OraclePriceExpired();
+        if(price <= 0) revert InvalidOraclePrice();
 
         // Price is times 10**18 ensure value amount is scaled
         return uint256(price) * _balance / SCALE_FACTOR;
@@ -83,6 +84,7 @@ contract RenzoOracle is
 
         (, int256 price, , uint256 timestamp, ) = oracle.latestRoundData();
         if(timestamp < block.timestamp - MAX_TIME_WINDOW) revert OraclePriceExpired();
+        if(price <= 0) revert InvalidOraclePrice();
 
         // Price is times 10**18 ensure token amount is scaled
         return _value * SCALE_FACTOR / uint256(price);
@@ -120,12 +122,22 @@ contract RenzoOracle is
         uint256 newEzETHSupply = (_existingEzETHSupply * SCALE_FACTOR) / (SCALE_FACTOR - inflationPercentaage);
 
         // Subtract the old supply from the new supply to get the amount to mint
-        return newEzETHSupply - _existingEzETHSupply;
+        uint256 mintAmount = newEzETHSupply - _existingEzETHSupply;
+
+        // Sanity check
+        if(mintAmount == 0) revert InvalidTokenAmount();
+
+        return mintAmount;
     }
 
     // Given the amount of ezETH to burn, the supply of ezETH, and the total value in the protocol, determine amount of value to return to user    
     function calculateRedeemAmount(uint256 _ezETHBeingBurned, uint256 _existingEzETHSupply, uint256 _currentValueInProtocol) external pure returns (uint256) {
       // This is just returning the percentage of TVL that matches the percentage of ezETH being burned 
-      return (_currentValueInProtocol * _ezETHBeingBurned) / _existingEzETHSupply;
+      uint256 redeemAmount = (_currentValueInProtocol * _ezETHBeingBurned) / _existingEzETHSupply;
+
+      // Sanity check
+      if(redeemAmount == 0) revert InvalidTokenAmount();
+
+      return redeemAmount;
     }
 }

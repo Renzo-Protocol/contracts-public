@@ -10,21 +10,16 @@ import "../Errors/Errors.sol";
 
 /// @dev This contract is the ezETH ERC20 token
 /// Ownership of the collateral in the protocol is tracked by the ezETH token
-contract EzEthToken is    
-    Initializable,
-    ERC20Upgradeable,
-    IEzEthToken, 
-    EzEthTokenStorageV1
-{
+contract EzEthToken is Initializable, ERC20Upgradeable, IEzEthToken, EzEthTokenStorageV1 {
     /// @dev Allows only a whitelisted address to mint or burn ezETH tokens
     modifier onlyMinterBurner() {
-        if(!roleManager.isEzETHMinterBurner(msg.sender)) revert NotEzETHMinterBurner();
+        if (!roleManager.isEzETHMinterBurner(msg.sender)) revert NotEzETHMinterBurner();
         _;
     }
 
     /// @dev Allows only a whitelisted address to pause or unpause the token
     modifier onlyTokenAdmin() {
-        if(!roleManager.isTokenAdmin(msg.sender)) revert NotTokenAdmin();
+        if (!roleManager.isTokenAdmin(msg.sender)) revert NotTokenAdmin();
         _;
     }
 
@@ -36,7 +31,7 @@ contract EzEthToken is
 
     /// @dev Initializes the contract with initial vars
     function initialize(IRoleManager _roleManager) public initializer {
-        if(address(_roleManager) == address(0x0)) revert InvalidZeroInput();
+        if (address(_roleManager) == address(0x0)) revert InvalidZeroInput();
 
         __ERC20_init("ezETH", "Renzo Restaked ETH");
         roleManager = _roleManager;
@@ -57,10 +52,12 @@ contract EzEthToken is
         paused = _paused;
     }
 
-    /// @dev 
-    function _beforeTokenTransfer(address from, address to, uint256 amount)
-        internal virtual override
-    {
+    /// @dev
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual override {
         super._beforeTokenTransfer(from, to, amount);
 
         // If not paused return success

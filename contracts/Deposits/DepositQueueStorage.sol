@@ -5,7 +5,7 @@ import "../Permissions/IRoleManager.sol";
 import "../IRestakeManager.sol";
 import "./IDepositQueue.sol";
 
-abstract contract DepositQueueStorageV1 is IDepositQueue {    
+abstract contract DepositQueueStorageV1 is IDepositQueue {
     /// @dev reference to the RoleManager contract
     IRoleManager public roleManager;
 

@@ -2,13 +2,13 @@
 pragma solidity 0.8.19;
 
 /// @dev Error for 0x0 address inputs
-error InvalidZeroInput();    
+error InvalidZeroInput();
 
 /// @dev Error for already added items to a list
-error AlreadyAdded();    
+error AlreadyAdded();
 
 /// @dev Error for not found items in a list
-error NotFound();    
+error NotFound();
 
 /// @dev Error for hitting max TVL
 error MaxTVLReached();
@@ -20,7 +20,7 @@ error NotRestakeManagerAdmin();
 error NotDepositQueue();
 
 /// @dev Error for contract being paused
-error ContractPaused(); 
+error ContractPaused();
 
 /// @dev Error for exceeding max basis points (100%)
 error OverMaxBasisPoints();
@@ -84,3 +84,48 @@ error NotImplemented();
 
 /// @dev Error when calculating token amounts is invalid
 error InvalidTokenAmount();
+
+/// @dev Error when timestamp is invalid - likely in the past
+error InvalidTimestamp(uint256 timestamp);
+
+/// @dev Error when trade does not meet minimum output amount
+error InsufficientOutputAmount();
+
+/// @dev Error when the token received over the bridge is not the one expected
+error InvalidTokenReceived();
+
+/// @dev Error when the origin address is not whitelisted
+error InvalidOrigin();
+
+/// @dev Error when the sender is not expected
+error InvalidSender(address expectedSender, address actualSender);
+
+/// @dev error when function returns 0 amount
+error InvalidZeroOutput();
+
+/// @dev error when xRenzoBridge does not have enough balance to pay for fee
+error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees);
+
+/// @dev error when source chain is not expected
+error InvalidSourceChain(uint64 expectedCCIPChainSelector, uint64 actualCCIPChainSelector);
+
+/// @dev Error when an unauthorized address tries to call the bridge function on the L2
+error UnauthorizedBridgeSweeper();
+
+/// @dev Error when caller does not have BRIDGE_ADMIN role
+error NotBridgeAdmin();
+
+/// @dev Error when caller does not have PRICE_FEED_SENDER role
+error NotPriceFeedSender();
+
+/// @dev Error for connext price Feed unauthorised call
+error UnAuthorisedCall();
+
+/// @dev Error for no price feed configured on L2
+error PriceFeedNotAvailable();
+
+/// @dev Error for invalid bridge fee share configuration
+error InvalidBridgeFeeShare(uint256 bridgeFee);
+
+/// @dev Error for invalid sweep batch size
+error InvalidSweepBatchSize(uint256 batchSize);

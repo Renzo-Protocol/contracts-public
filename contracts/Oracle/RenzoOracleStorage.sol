@@ -5,7 +5,7 @@ import "../Permissions/IRoleManager.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-abstract contract RenzoOracleStorageV1 {    
+abstract contract RenzoOracleStorageV1 {
     /// @dev reference to the RoleManager contract
     IRoleManager public roleManager;
 

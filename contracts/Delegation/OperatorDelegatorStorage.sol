@@ -13,7 +13,7 @@ import "../IRestakeManager.sol";
 /// When upgrading the protocol, inherit from this contract on the V2 version and change the
 /// StorageManager to inherit from the later version.  This ensures there are no storage layout
 /// corruptions when upgrading.
-abstract contract OperatorDelegatorStorageV1 is IOperatorDelegator{
+abstract contract OperatorDelegatorStorageV1 is IOperatorDelegator {
     /// @dev reference to the RoleManager contract
     IRoleManager public roleManager;
 
@@ -43,7 +43,11 @@ abstract contract OperatorDelegatorStorageV1 is IOperatorDelegator{
     uint256 public stakedButNotVerifiedEth;
 }
 
+abstract contract OperatorDelegatorStorageV2 is OperatorDelegatorStorageV1 {
+    uint256 public pendingUnstakedDelayedWithdrawalAmount;
+}
+
 /// On the next version of the protocol, if new variables are added, put them in the below
 /// contract and use this as the inheritance chain.
-// contract OperatorDelegatorStorageV2 is OperatorDelegatorStorageV1 {
+// abstract contract OperatorDelegatorStorageV3 is OperatorDelegatorStorageV2 {
 // }

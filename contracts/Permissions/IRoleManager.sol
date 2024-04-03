@@ -8,57 +8,41 @@ interface IRoleManager {
 
     /// @dev Determines if the specified address has permission to mint or burn ezETH tokens
     /// @param potentialAddress Address to check
-    function isEzETHMinterBurner(address potentialAddress)
-        external
-        view
-        returns (bool);
+    function isEzETHMinterBurner(address potentialAddress) external view returns (bool);
 
     /// @dev Determines if the specified address has permission to update config on the OperatorDelgator Contracts
     /// @param potentialAddress Address to check
-    function isOperatorDelegatorAdmin(address potentialAddress)
-        external
-        view
-        returns (bool);
+    function isOperatorDelegatorAdmin(address potentialAddress) external view returns (bool);
 
     /// @dev Determines if the specified address has permission to update config on the Oracle Contract config
     /// @param potentialAddress Address to check
-    function isOracleAdmin(address potentialAddress)
-        external
-        view
-        returns (bool);
+    function isOracleAdmin(address potentialAddress) external view returns (bool);
 
     /// @dev Determines if the specified address has permission to update config on the Restake Manager
     /// @param potentialAddress Address to check
-    function isRestakeManagerAdmin(address potentialAddress)
-        external
-        view
-        returns (bool);
+    function isRestakeManagerAdmin(address potentialAddress) external view returns (bool);
 
     /// @dev Determines if the specified address has permission to update config on the Token Contract
     /// @param potentialAddress Address to check
-    function isTokenAdmin(address potentialAddress)
-        external
-        view
-        returns (bool);
-    
+    function isTokenAdmin(address potentialAddress) external view returns (bool);
+
     /// @dev Determines if the specified address has permission to trigger restaking of native ETH
     /// @param potentialAddress Address to check
-    function isNativeEthRestakeAdmin(address potentialAddress)
-        external
-        view
-        returns (bool);        
+    function isNativeEthRestakeAdmin(address potentialAddress) external view returns (bool);
 
     /// @dev Determines if the specified address has permission to sweep and deposit ERC20 Rewards
     /// @param potentialAddress Address to check
-    function isERC20RewardsAdmin(address potentialAddress)
-        external
-        view
-        returns (bool);        
-    
+    function isERC20RewardsAdmin(address potentialAddress) external view returns (bool);
+
     /// @dev Determines if the specified address has permission to pause deposits and withdraws
     /// @param potentialAddress Address to check
-    function isDepositWithdrawPauser(address potentialAddress)
-        external
-        view
-        returns (bool);
+    function isDepositWithdrawPauser(address potentialAddress) external view returns (bool);
+
+    /// @dev Determines if the specified address has permission to set whitelisted origin in xRenzoBridge
+    /// @param potentialAddress Address to check
+    function isBridgeAdmin(address potentialAddress) external view returns (bool);
+
+    /// @dev Determined if the specified address has permission to send price feed of ezETH to L2
+    /// @param potentialAddress Address to check
+    function isPriceFeedSender(address potentialAddress) external view returns (bool);
 }

@@ -23,11 +23,7 @@ import "./Errors/Errors.sol";
             Users will interact with this contract to deposit and withdraw value into and from EigenLayer
             Ownership of deposited funds will be tracked via the ezETh token
  */
-contract RestakeManager is    
-    Initializable,
-    ReentrancyGuardUpgradeable,
-    RestakeManagerStorageV2
-{
+contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeManagerStorageV2 {
     using SafeERC20 for IERC20;
     using SafeERC20Upgradeable for IEzEthToken;
 
@@ -36,7 +32,7 @@ contract RestakeManager is
     event OperatorDelegatorAllocationUpdated(IOperatorDelegator od, uint256 allocation);
 
     event CollateralTokenAdded(IERC20 token);
-    event CollateralTokenRemoved(IERC20 token);    
+    event CollateralTokenRemoved(IERC20 token);
 
     /// @dev Basis points used for percentages (100 basis points equals 1%)
     uint256 constant BASIS_POINTS = 100;
@@ -69,32 +65,29 @@ contract RestakeManager is
     );
 
     /// @dev Event emitted when a token TVL Limit is updated
-    event CollateralTokenTvlUpdated(
-        IERC20 token,
-        uint256 tvl
-    );
+    event CollateralTokenTvlUpdated(IERC20 token, uint256 tvl);
 
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyRestakeManagerAdmin() {
-        if(!roleManager.isRestakeManagerAdmin(msg.sender)) revert NotRestakeManagerAdmin();
+        if (!roleManager.isRestakeManagerAdmin(msg.sender)) revert NotRestakeManagerAdmin();
         _;
     }
 
     /// @dev Allows only a whitelisted address to set pause state
     modifier onlyDepositWithdrawPauserAdmin() {
-        if(!roleManager.isDepositWithdrawPauser(msg.sender)) revert NotDepositWithdrawPauser();
+        if (!roleManager.isDepositWithdrawPauser(msg.sender)) revert NotDepositWithdrawPauser();
         _;
     }
 
     /// @dev Allows only the deposit queue to call functions
     modifier onlyDepositQueue() {
-        if(msg.sender != address(depositQueue)) revert NotDepositQueue();
+        if (msg.sender != address(depositQueue)) revert NotDepositQueue();
         _;
     }
 
     /// @dev Only allows execution if contract is not paused
     modifier notPaused() {
-        if(paused) revert ContractPaused();
+        if (paused) revert ContractPaused();
         _;
     }
 
@@ -113,9 +106,8 @@ contract RestakeManager is
         IDelegationManager _delegationManager,
         IDepositQueue _depositQueue
     ) public initializer {
-
         __ReentrancyGuard_init();
-        
+
         roleManager = _roleManager;
         ezETH = _ezETH;
         renzoOracle = _renzoOracle;
@@ -142,13 +134,16 @@ contract RestakeManager is
     ) external onlyRestakeManagerAdmin {
         // Ensure it is not already in the list
         uint256 odLength = operatorDelegators.length;
-        for (uint256 i = 0; i < odLength;) {
-            if( address(operatorDelegators[i]) == address(_newOperatorDelegator)) revert AlreadyAdded();
-            unchecked{++i;}        
+        for (uint256 i = 0; i < odLength; ) {
+            if (address(operatorDelegators[i]) == address(_newOperatorDelegator))
+                revert AlreadyAdded();
+            unchecked {
+                ++i;
+            }
         }
 
         // Verify a valid allocation
-        if(_allocationBasisPoints > (100 * BASIS_POINTS)) revert OverMaxBasisPoints();
+        if (_allocationBasisPoints > (100 * BASIS_POINTS)) revert OverMaxBasisPoints();
 
         // Add it to the list
         operatorDelegators.push(_newOperatorDelegator);
@@ -156,14 +151,9 @@ contract RestakeManager is
         emit OperatorDelegatorAdded(_newOperatorDelegator);
 
         // Set the allocation
-        operatorDelegatorAllocations[
-            _newOperatorDelegator
-        ] = _allocationBasisPoints;
+        operatorDelegatorAllocations[_newOperatorDelegator] = _allocationBasisPoints;
 
-        emit OperatorDelegatorAllocationUpdated(
-            _newOperatorDelegator,
-            _allocationBasisPoints
-        );
+        emit OperatorDelegatorAllocationUpdated(_newOperatorDelegator, _allocationBasisPoints);
     }
 
     /// @dev Allows a restake manager admin to remove an OperatorDelegator from the list
@@ -172,27 +162,21 @@ contract RestakeManager is
     ) external onlyRestakeManagerAdmin {
         // Remove it from the list
         uint256 odLength = operatorDelegators.length;
-        for (uint256 i = 0; i < odLength;) {
-            if (
-                address(operatorDelegators[i]) ==
-                address(_operatorDelegatorToRemove)
-            ) {
+        for (uint256 i = 0; i < odLength; ) {
+            if (address(operatorDelegators[i]) == address(_operatorDelegatorToRemove)) {
                 // Clear the allocation
                 operatorDelegatorAllocations[_operatorDelegatorToRemove] = 0;
-                emit OperatorDelegatorAllocationUpdated(
-                    _operatorDelegatorToRemove,
-                    0
-                );
+                emit OperatorDelegatorAllocationUpdated(_operatorDelegatorToRemove, 0);
 
                 // Remove from list
-                operatorDelegators[i] = operatorDelegators[
-                    operatorDelegators.length - 1
-                ];
+                operatorDelegators[i] = operatorDelegators[operatorDelegators.length - 1];
                 operatorDelegators.pop();
                 emit OperatorDelegatorRemoved(_operatorDelegatorToRemove);
                 return;
             }
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
 
         // If the item was not found, throw an error
@@ -204,34 +188,27 @@ contract RestakeManager is
         IOperatorDelegator _operatorDelegator,
         uint256 _allocationBasisPoints
     ) external onlyRestakeManagerAdmin {
-        if(address(_operatorDelegator) == address(0x0)) revert InvalidZeroInput();
-        if(_allocationBasisPoints > (100 * BASIS_POINTS)) revert OverMaxBasisPoints();
+        if (address(_operatorDelegator) == address(0x0)) revert InvalidZeroInput();
+        if (_allocationBasisPoints > (100 * BASIS_POINTS)) revert OverMaxBasisPoints();
 
         // Ensure the OD is in the list to prevent mis-configuration
         bool foundOd = false;
         uint256 odLength = operatorDelegators.length;
-        for (uint256 i = 0; i < odLength;) {
-            if (
-                address(operatorDelegators[i]) ==
-                address(_operatorDelegator)
-            ) {
+        for (uint256 i = 0; i < odLength; ) {
+            if (address(operatorDelegators[i]) == address(_operatorDelegator)) {
                 foundOd = true;
                 break;
             }
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
-        if(!foundOd) revert NotFound();
-
+        if (!foundOd) revert NotFound();
 
         // Set the allocation
-        operatorDelegatorAllocations[
-            _operatorDelegator
-        ] = _allocationBasisPoints;
+        operatorDelegatorAllocations[_operatorDelegator] = _allocationBasisPoints;
 
-        emit OperatorDelegatorAllocationUpdated(
-            _operatorDelegator,
-            _allocationBasisPoints
-        );
+        emit OperatorDelegatorAllocationUpdated(_operatorDelegator, _allocationBasisPoints);
     }
 
     /// @dev Allows a restake manager admin to set the max TVL for deposits.  If set to 0, no deposits will be enforced.
@@ -240,18 +217,22 @@ contract RestakeManager is
     }
 
     /// @dev Allows restake manager to add a collateral token
-    function addCollateralToken(
-        IERC20 _newCollateralToken
-    ) external onlyRestakeManagerAdmin {
+    function addCollateralToken(IERC20 _newCollateralToken) external onlyRestakeManagerAdmin {
         // Ensure it is not already in the list
         uint256 tokenLength = collateralTokens.length;
-        for (uint256 i = 0; i < tokenLength;) {
-            if( address(collateralTokens[i]) == address(_newCollateralToken)) revert AlreadyAdded();
-            unchecked{++i;}
+        for (uint256 i = 0; i < tokenLength; ) {
+            if (address(collateralTokens[i]) == address(_newCollateralToken)) revert AlreadyAdded();
+            unchecked {
+                ++i;
+            }
         }
 
         // Verify the token has 18 decimal precision - pricing calculations will be off otherwise
-        if(IERC20Metadata(address(_newCollateralToken)).decimals() != 18) revert InvalidTokenDecimals(18, IERC20Metadata(address(_newCollateralToken)).decimals());
+        if (IERC20Metadata(address(_newCollateralToken)).decimals() != 18)
+            revert InvalidTokenDecimals(
+                18,
+                IERC20Metadata(address(_newCollateralToken)).decimals()
+            );
 
         // Add it to the list
         collateralTokens.push(_newCollateralToken);
@@ -265,19 +246,16 @@ contract RestakeManager is
     ) external onlyRestakeManagerAdmin {
         // Remove it from the list
         uint256 tokenLength = collateralTokens.length;
-        for (uint256 i = 0; i < tokenLength;) {
-            if (
-                address(collateralTokens[i]) ==
-                address(_collateralTokenToRemove)
-            ) {
-                collateralTokens[i] = collateralTokens[
-                    collateralTokens.length - 1
-                ];
+        for (uint256 i = 0; i < tokenLength; ) {
+            if (address(collateralTokens[i]) == address(_collateralTokenToRemove)) {
+                collateralTokens[i] = collateralTokens[collateralTokens.length - 1];
                 collateralTokens.pop();
                 emit CollateralTokenRemoved(_collateralTokenToRemove);
                 return;
             }
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
 
         // If the item was not found, throw an error
@@ -293,37 +271,28 @@ contract RestakeManager is
     /// @return operatorDelegatorTokenTVLs Each OD's TVL indexed by operatorDelegators array by collateralTokens array
     /// @return operatorDelegatorTVLs Each OD's Total TVL in order of operatorDelegators array
     /// @return totalTVL The total TVL across all operator delegators.
-    function calculateTVLs()
-        public
-        view
-        returns (uint256[][] memory, uint256[] memory, uint256)
-    {
-        uint256[][] memory operatorDelegatorTokenTVLs = new uint256[][](
-            operatorDelegators.length
-        );
-        uint256[] memory operatorDelegatorTVLs = new uint256[](
-            operatorDelegators.length
-        );
+    function calculateTVLs() public view returns (uint256[][] memory, uint256[] memory, uint256) {
+        uint256[][] memory operatorDelegatorTokenTVLs = new uint256[][](operatorDelegators.length);
+        uint256[] memory operatorDelegatorTVLs = new uint256[](operatorDelegators.length);
         uint256 totalTVL = 0;
 
         // Iterate through the ODs
         uint256 odLength = operatorDelegators.length;
-        for (uint256 i = 0; i < odLength;) {
+        for (uint256 i = 0; i < odLength; ) {
             // Track the TVL for this OD
             uint256 operatorTVL = 0;
 
             // Track the individual token TVLs for this OD - native ETH will be last item in the array
-            uint256[] memory operatorValues = new uint256[](
-                collateralTokens.length + 1
-            );
+            uint256[] memory operatorValues = new uint256[](collateralTokens.length + 1);
             operatorDelegatorTokenTVLs[i] = operatorValues;
 
             // Iterate through the tokens and get the value of each
             uint256 tokenLength = collateralTokens.length;
-            for (uint256 j = 0; j < tokenLength;) {
+            for (uint256 j = 0; j < tokenLength; ) {
                 // Get the value of this token
-                uint256 operatorBalance = operatorDelegators[i]
-                    .getTokenBalanceFromStrategy(collateralTokens[j]);
+                uint256 operatorBalance = operatorDelegators[i].getTokenBalanceFromStrategy(
+                    collateralTokens[j]
+                );
 
                 // Set the value in the array for this OD
                 operatorValues[j] = renzoOracle.lookupTokenValue(
@@ -334,7 +303,9 @@ contract RestakeManager is
                 // Add it to the total TVL for this OD
                 operatorTVL += operatorValues[j];
 
-                unchecked{++j;}
+                unchecked {
+                    ++j;
+                }
             }
 
             // Get the value of native ETH staked for the OD
@@ -352,7 +323,9 @@ contract RestakeManager is
             // Save the TVL for this OD
             operatorDelegatorTVLs[i] = operatorTVL;
 
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
 
         // Get the value of native ETH held in the deposit queue and add it to the total TVL
@@ -377,18 +350,19 @@ contract RestakeManager is
 
         // Otherwise, find the operator delegator with TVL below the threshold
         uint256 tvlLength = tvls.length;
-        for (uint256 i = 0; i < tvlLength;) {
+        for (uint256 i = 0; i < tvlLength; ) {
             if (
                 tvls[i] <
-                (operatorDelegatorAllocations[operatorDelegators[i]] *
-                    totalTVL) /
+                (operatorDelegatorAllocations[operatorDelegators[i]] * totalTVL) /
                     BASIS_POINTS /
                     BASIS_POINTS
             ) {
                 return operatorDelegators[i];
             }
 
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
 
         // Default to the first operator delegator
@@ -418,11 +392,10 @@ contract RestakeManager is
 
         // Fnd the operator delegator with TVL above the threshold and with enough tokens
         uint256 odLength = operatorDelegatorTVLs.length;
-        for (uint256 i = 0; i < odLength;) {
+        for (uint256 i = 0; i < odLength; ) {
             if (
                 operatorDelegatorTVLs[i] >
-                (operatorDelegatorAllocations[operatorDelegators[i]] *
-                    totalTVL) /
+                (operatorDelegatorAllocations[operatorDelegators[i]] * totalTVL) /
                     BASIS_POINTS /
                     BASIS_POINTS &&
                 operatorDelegatorTokenTVLs[i][tokenIndex] >= ezETHValue
@@ -430,16 +403,20 @@ contract RestakeManager is
                 return operatorDelegators[i];
             }
 
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
 
-        // If not found, just find one with enough tokens        
-        for (uint256 i = 0; i < odLength;) {
+        // If not found, just find one with enough tokens
+        for (uint256 i = 0; i < odLength; ) {
             if (operatorDelegatorTokenTVLs[i][tokenIndex] >= ezETHValue) {
                 return operatorDelegators[i];
             }
 
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
 
         // This token cannot be withdrawn
@@ -448,17 +425,17 @@ contract RestakeManager is
 
     /// @dev Finds the index of the collateral token in the list
     /// Reverts if the token is not found in the list
-    function getCollateralTokenIndex(
-        IERC20 _collateralToken
-    ) public view returns (uint256) {
+    function getCollateralTokenIndex(IERC20 _collateralToken) public view returns (uint256) {
         // Find the token index
         uint256 tokenLength = collateralTokens.length;
-        for (uint256 i = 0; i < tokenLength;) {
+        for (uint256 i = 0; i < tokenLength; ) {
             if (collateralTokens[i] == _collateralToken) {
                 return i;
             }
 
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
 
         revert NotFound();
@@ -470,10 +447,7 @@ contract RestakeManager is
      * @param   _collateralToken  The address of the collateral ERC20 token to deposit
      * @param   _amount The amount of the collateral token to deposit in base units
      */
-    function deposit(
-        IERC20 _collateralToken,
-        uint256 _amount
-    ) external {
+    function deposit(IERC20 _collateralToken, uint256 _amount) external {
         deposit(_collateralToken, _amount, 0);
     }
 
@@ -507,47 +481,40 @@ contract RestakeManager is
         ) = calculateTVLs();
 
         // Get the value of the collateral token being deposited
-        uint256 collateralTokenValue = renzoOracle.lookupTokenValue(
-            _collateralToken,
-            _amount
-        );
+        uint256 collateralTokenValue = renzoOracle.lookupTokenValue(_collateralToken, _amount);
 
         // Enforce TVL limit if set, 0 means the check is not enabled
-        if(maxDepositTVL != 0 && totalTVL + collateralTokenValue > maxDepositTVL) {
+        if (maxDepositTVL != 0 && totalTVL + collateralTokenValue > maxDepositTVL) {
             revert MaxTVLReached();
         }
 
         // Enforce individual token TVL limit if set, 0 means the check is not enabled
-        if(collateralTokenTvlLimits[_collateralToken] != 0) {
-
+        if (collateralTokenTvlLimits[_collateralToken] != 0) {
             // Track the current token's TVL
             uint256 currentTokenTVL = 0;
 
             // For each OD, add up the token TVLs
             uint256 odLength = operatorDelegatorTokenTVLs.length;
-            for (uint256 i = 0; i < odLength;) {
+            for (uint256 i = 0; i < odLength; ) {
                 currentTokenTVL += operatorDelegatorTokenTVLs[i][tokenIndex];
-                unchecked{++i;}        
+                unchecked {
+                    ++i;
+                }
             }
 
             // Check if it is over the limit
-            if(currentTokenTVL + collateralTokenValue > collateralTokenTvlLimits[_collateralToken])
+            if (currentTokenTVL + collateralTokenValue > collateralTokenTvlLimits[_collateralToken])
                 revert MaxTokenTVLReached();
         }
 
-
         // Determine which operator delegator to use
         IOperatorDelegator operatorDelegator = chooseOperatorDelegatorForDeposit(
-                operatorDelegatorTVLs,
-                totalTVL
-            );
+            operatorDelegatorTVLs,
+            totalTVL
+        );
 
         // Transfer the collateral token to this address
-        _collateralToken.safeTransferFrom(
-            msg.sender,
-            address(this),
-            _amount
-        );
+        _collateralToken.safeTransferFrom(msg.sender, address(this), _amount);
 
         // Approve the tokens to the operator delegator
         _collateralToken.safeApprove(address(operatorDelegator), _amount);
@@ -569,7 +536,6 @@ contract RestakeManager is
         emit Deposit(msg.sender, _collateralToken, _amount, ezETHToMint, _referralId);
     }
 
-
     /**
      * @notice  Allows a user to deposit ETH into the protocol and get back ezETH
      * @dev     Convenience function to deposit without a referral ID and backwards compatibility
@@ -580,25 +546,21 @@ contract RestakeManager is
 
     /**
      * @notice  Allows a user to deposit ETH into the protocol and get back ezETH
-     * @dev     The amount of ETH sent into this function will be sent to the deposit queue to be 
+     * @dev     The amount of ETH sent into this function will be sent to the deposit queue to be
      * staked later by a validator.  Once staked it will be deposited into EigenLayer.
      * * @param   _referralId  The referral ID to use for the deposit (can be 0 if none)
      */
     function depositETH(uint256 _referralId) public payable nonReentrant notPaused {
         // Get the total TVL
-        (
-            ,
-            ,
-            uint256 totalTVL
-        ) = calculateTVLs();
+        (, , uint256 totalTVL) = calculateTVLs();
 
         // Enforce TVL limit if set
-        if(maxDepositTVL != 0 && totalTVL + msg.value > maxDepositTVL) {
+        if (maxDepositTVL != 0 && totalTVL + msg.value > maxDepositTVL) {
             revert MaxTVLReached();
         }
 
         // Deposit the ETH into the DepositQueue
-        depositQueue.depositETHFromProtocol{value: msg.value}();
+        depositQueue.depositETHFromProtocol{ value: msg.value }();
 
         // Calculate how much ezETH to mint
         uint256 ezETHToMint = renzoOracle.calculateMintAmount(
@@ -616,22 +578,29 @@ contract RestakeManager is
 
     /// @dev Called by the deposit queue to stake ETH to a validator
     /// Only callable by the deposit queue
-    function stakeEthInOperatorDelegator(IOperatorDelegator operatorDelegator, bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable onlyDepositQueue {
+    function stakeEthInOperatorDelegator(
+        IOperatorDelegator operatorDelegator,
+        bytes calldata pubkey,
+        bytes calldata signature,
+        bytes32 depositDataRoot
+    ) external payable onlyDepositQueue {
         // Verify the OD is in the list
         bool found = false;
         uint256 odLength = operatorDelegators.length;
-        for (uint256 i = 0; i < odLength;) {
+        for (uint256 i = 0; i < odLength; ) {
             if (operatorDelegators[i] == operatorDelegator) {
                 found = true;
                 break;
             }
 
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
-        if(!found) revert NotFound();
+        if (!found) revert NotFound();
 
         // Call the OD to stake the ETH
-        operatorDelegator.stakeEth{value: msg.value}(pubkey, signature, depositDataRoot);
+        operatorDelegator.stakeEth{ value: msg.value }(pubkey, signature, depositDataRoot);
     }
 
     /// @dev Deposit ERC20 token rewards from the Deposit Queue
@@ -639,27 +608,18 @@ contract RestakeManager is
     function depositTokenRewardsFromProtocol(
         IERC20 _token,
         uint256 _amount
-    ) external onlyDepositQueue {        
-        
+    ) external onlyDepositQueue {
         // Get the TVLs for each operator delegator and the total TVL
-        (
-            ,
-            uint256[] memory operatorDelegatorTVLs,
-            uint256 totalTVL
-        ) = calculateTVLs();
+        (, uint256[] memory operatorDelegatorTVLs, uint256 totalTVL) = calculateTVLs();
 
         // Determine which operator delegator to use
         IOperatorDelegator operatorDelegator = chooseOperatorDelegatorForDeposit(
-                operatorDelegatorTVLs,
-                totalTVL
-            );
+            operatorDelegatorTVLs,
+            totalTVL
+        );
 
         // Transfer the tokens to this address
-        _token.safeTransferFrom(
-            msg.sender,
-            address(this),
-            _amount
-        );
+        _token.safeTransferFrom(msg.sender, address(this), _amount);
 
         // Approve the tokens to the operator delegator
         _token.safeApprove(address(operatorDelegator), _amount);
@@ -673,7 +633,7 @@ contract RestakeManager is
      * @dev     Rewards include staking native ETH and EigenLayer rewards (ETH + ERC20s)
      * @return  uint256  The total amount of rewards earned by the protocol priced in ETH
      */
-    function getTotalRewardsEarned() external view returns (uint256){
+    function getTotalRewardsEarned() external view returns (uint256) {
         uint256 totalRewards = 0;
 
         // First get the ETH rewards tracked in the deposit queue
@@ -681,26 +641,34 @@ contract RestakeManager is
 
         // For each token, get the total rewards earned from the deposit queue and price it in ETH
         uint256 tokenLength = collateralTokens.length;
-        for (uint256 i = 0; i < tokenLength;) {    
-            // Get the amount        
+        for (uint256 i = 0; i < tokenLength; ) {
+            // Get the amount
             uint256 tokenRewardAmount = depositQueue.totalEarned(address(collateralTokens[i]));
 
             // Convert via the price oracle
             totalRewards += renzoOracle.lookupTokenValue(collateralTokens[i], tokenRewardAmount);
 
-            unchecked{++i;}
+            unchecked {
+                ++i;
+            }
         }
 
         // For each OperatorDelegator, get the balance (these are rewards from staking that have not been restaked)
+        // Funds in OD's EigenPod are assumed to be rewards in M1 until exiting validators or withdrawals are supported
+        // Pending unstaked delayed withdrawal amounts are pending being routed into the DepositQueue after a delay
         uint256 odLength = operatorDelegators.length;
-        for (uint256 i = 0; i < odLength;) {
-            totalRewards += address(operatorDelegators[i].eigenPod()).balance;
-            unchecked{++i;}
+        for (uint256 i = 0; i < odLength; ) {
+            totalRewards +=
+                address(operatorDelegators[i].eigenPod()).balance +
+                operatorDelegators[i].pendingUnstakedDelayedWithdrawalAmount();
+            unchecked {
+                ++i;
+            }
         }
 
         return totalRewards;
     }
-    
+
     function setTokenTvlLimit(IERC20 _token, uint256 _limit) external onlyRestakeManagerAdmin {
         // Verify collateral token is in the list - call will revert if not found
         getCollateralTokenIndex(_token);

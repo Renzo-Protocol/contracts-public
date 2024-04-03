@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../Permissions/IRoleManager.sol";
 import "./OperatorDelegatorStorage.sol";
-import "../RestakeManager.sol";
 import "../EigenLayer/interfaces/IDelegationManager.sol";
 import "../Errors/Errors.sol";
 
@@ -17,10 +16,10 @@ import "../Errors/Errors.sol";
 contract OperatorDelegator is
     Initializable,
     ReentrancyGuardUpgradeable,
-    OperatorDelegatorStorageV1
+    OperatorDelegatorStorageV2
 {
     using SafeERC20 for IERC20;
-    
+
     uint256 internal constant GWEI_TO_WEI = 1e9;
 
     event TokenStrategyUpdated(IERC20 token, IStrategy strategy);
@@ -40,19 +39,19 @@ contract OperatorDelegator is
 
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyOperatorDelegatorAdmin() {
-        if(!roleManager.isOperatorDelegatorAdmin(msg.sender)) revert NotOperatorDelegatorAdmin();
+        if (!roleManager.isOperatorDelegatorAdmin(msg.sender)) revert NotOperatorDelegatorAdmin();
         _;
     }
 
     /// @dev Allows only the RestakeManager address to call functions
     modifier onlyRestakeManager() {
-        if(msg.sender != address(restakeManager)) revert NotRestakeManager();
+        if (msg.sender != address(restakeManager)) revert NotRestakeManager();
         _;
     }
 
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyNativeEthRestakeAdmin() {
-        if(!roleManager.isNativeEthRestakeAdmin(msg.sender)) revert NotNativeEthRestakeAdmin();
+        if (!roleManager.isNativeEthRestakeAdmin(msg.sender)) revert NotNativeEthRestakeAdmin();
         _;
     }
 
@@ -70,11 +69,11 @@ contract OperatorDelegator is
         IDelegationManager _delegationManager,
         IEigenPodManager _eigenPodManager
     ) external initializer {
-        if(address(_roleManager) == address(0x0)) revert InvalidZeroInput();
-        if(address(_strategyManager) == address(0x0)) revert InvalidZeroInput();
-        if(address(_restakeManager) == address(0x0)) revert InvalidZeroInput();
-        if(address(_delegationManager) == address(0x0)) revert InvalidZeroInput();
-        if(address(_eigenPodManager) == address(0x0)) revert InvalidZeroInput();
+        if (address(_roleManager) == address(0x0)) revert InvalidZeroInput();
+        if (address(_strategyManager) == address(0x0)) revert InvalidZeroInput();
+        if (address(_restakeManager) == address(0x0)) revert InvalidZeroInput();
+        if (address(_delegationManager) == address(0x0)) revert InvalidZeroInput();
+        if (address(_eigenPodManager) == address(0x0)) revert InvalidZeroInput();
 
         __ReentrancyGuard_init();
 
@@ -96,7 +95,7 @@ contract OperatorDelegator is
         IERC20 _token,
         IStrategy _strategy
     ) external nonReentrant onlyOperatorDelegatorAdmin {
-        if(address(_token) == address(0x0)) revert InvalidZeroInput();
+        if (address(_token) == address(0x0)) revert InvalidZeroInput();
 
         tokenStrategyMapping[_token] = _strategy;
         emit TokenStrategyUpdated(_token, _strategy);
@@ -106,14 +105,12 @@ contract OperatorDelegator is
     function setDelegateAddress(
         address _delegateAddress
     ) external nonReentrant onlyOperatorDelegatorAdmin {
-        if(address(_delegateAddress) == address(0x0)) revert InvalidZeroInput();
-        if(address(delegateAddress) != address(0x0)) revert DelegateAddressAlreadySet();
+        if (address(_delegateAddress) == address(0x0)) revert InvalidZeroInput();
+        if (address(delegateAddress) != address(0x0)) revert DelegateAddressAlreadySet();
 
         delegateAddress = _delegateAddress;
 
-        delegationManager.delegateTo(
-            delegateAddress
-        );
+        delegationManager.delegateTo(delegateAddress);
 
         emit DelegationAddressUpdated(_delegateAddress);
     }
@@ -125,8 +122,8 @@ contract OperatorDelegator is
         IERC20 _token,
         uint256 _tokenAmount
     ) external nonReentrant onlyRestakeManager returns (uint256 shares) {
-        if(address(tokenStrategyMapping[_token]) == address(0x0)) revert InvalidZeroInput();
-        if(_tokenAmount == 0) revert InvalidZeroInput();
+        if (address(tokenStrategyMapping[_token]) == address(0x0)) revert InvalidZeroInput();
+        if (_tokenAmount == 0) revert InvalidZeroInput();
 
         // Move the tokens into this contract
         _token.safeTransferFrom(msg.sender, address(this), _tokenAmount);
@@ -136,11 +133,7 @@ contract OperatorDelegator is
 
         // Deposit the tokens via the strategy manager
         return
-            strategyManager.depositIntoStrategy(
-                tokenStrategyMapping[_token],
-                _token,
-                _tokenAmount
-            );
+            strategyManager.depositIntoStrategy(tokenStrategyMapping[_token], _token, _tokenAmount);
     }
 
     /// @dev Gets the index of the specific strategy in EigenLayer in the staker's strategy list
@@ -148,8 +141,8 @@ contract OperatorDelegator is
         // Get the length of the strategy list for this contract
         uint256 strategyLength = strategyManager.stakerStrategyListLength(address(this));
 
-        for(uint256 i = 0; i < strategyLength; i++) {
-            if(strategyManager.stakerStrategyList(address(this), i) == _strategy) {
+        for (uint256 i = 0; i < strategyLength; i++) {
+            if (strategyManager.stakerStrategyList(address(this), i) == _strategy) {
                 return i;
             }
         }
@@ -165,7 +158,7 @@ contract OperatorDelegator is
         IERC20 _token,
         uint256 _tokenAmount
     ) external nonReentrant onlyRestakeManager returns (bytes32) {
-        if(address(tokenStrategyMapping[_token]) == address(0x0)) revert InvalidZeroInput();
+        if (address(tokenStrategyMapping[_token]) == address(0x0)) revert InvalidZeroInput();
 
         // Save the nonce before starting the withdrawal
         uint96 nonce = uint96(strategyManager.numWithdrawalsQueued(address(this)));
@@ -175,7 +168,9 @@ contract OperatorDelegator is
         strategyIndexes[0] = getStrategyIndex(tokenStrategyMapping[_token]);
 
         // Convert the number of tokens to shares - TODO: Understand if the view function is the proper one to call
-        uint256 sharesToWithdraw = tokenStrategyMapping[_token].underlyingToSharesView(_tokenAmount);
+        uint256 sharesToWithdraw = tokenStrategyMapping[_token].underlyingToSharesView(
+            _tokenAmount
+        );
 
         IStrategy[] memory strategiesToWithdraw = new IStrategy[](1);
         strategiesToWithdraw[0] = tokenStrategyMapping[_token];
@@ -230,26 +225,31 @@ contract OperatorDelegator is
     }
 
     /// @dev Gets the underlying token amount from the amount of shares
-    function getTokenBalanceFromStrategy(
-        IERC20 token
-    ) external view returns (uint256) {
+    function getTokenBalanceFromStrategy(IERC20 token) external view returns (uint256) {
         return tokenStrategyMapping[token].userUnderlyingView(address(this));
     }
 
     /// @dev Gets the amount of ETH staked in the EigenLayer
     function getStakedETHBalance() external view returns (uint256) {
-        // TODO: Once withdrawals are enabled, allow this to handle pending withdraws and a potential negative share balance in the EigenPodManager ownershares        
+        // TODO: Once withdrawals are enabled, allow this to handle pending withdraws and a potential negative share balance in the EigenPodManager ownershares
         // TODO: Once upgraded to M2, add back in staked verified ETH, e.g. + uint256(strategyManager.stakerStrategyShares(address(this), strategyManager.beaconChainETHStrategy()))
         // TODO: once M2 is released, there is a possibility someone could call Verify() to try and mess up the TVL calcs (we would double count the stakedButNotVerifiedEth + actual verified ETH in the EigenPod)
         //       - we should track the validator node's verified status to ensure this doesn't happen
-        return stakedButNotVerifiedEth + address(eigenPod).balance;
+        return
+            stakedButNotVerifiedEth +
+            address(eigenPod).balance +
+            pendingUnstakedDelayedWithdrawalAmount;
     }
 
     /// @dev Stake ETH in the EigenLayer
     /// Only the Restake Manager should call this function
-    function stakeEth(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable onlyRestakeManager {
+    function stakeEth(
+        bytes calldata pubkey,
+        bytes calldata signature,
+        bytes32 depositDataRoot
+    ) external payable onlyRestakeManager {
         // Call the stake function in the EigenPodManager
-        eigenPodManager.stake{value: msg.value}(pubkey, signature, depositDataRoot);
+        eigenPodManager.stake{ value: msg.value }(pubkey, signature, depositDataRoot);
 
         // Increment the staked but not verified ETH
         stakedButNotVerifiedEth += msg.value;
@@ -272,25 +272,52 @@ contract OperatorDelegator is
         );
 
         // Decrement the staked but not verified ETH
-        uint64 validatorCurrentBalanceGwei = BeaconChainProofs.getBalanceFromBalanceRoot(validatorIndex, proofs.balanceRoot);
+        uint64 validatorCurrentBalanceGwei = BeaconChainProofs.getBalanceFromBalanceRoot(
+            validatorIndex,
+            proofs.balanceRoot
+        );
         stakedButNotVerifiedEth -= (validatorCurrentBalanceGwei * GWEI_TO_WEI);
     }
 
     /**
      * @notice  Starts a delayed withdraw of the ETH from the EigenPodManager
      * @dev     Before the eigenpod is verified, we can sweep out any accumulated ETH from the Consensus layer validator rewards
+     *         We also want to track the amount in the delayed withdrawal router so we can track the TVL and reward amount accurately
      */
     function startDelayedWithdrawUnstakedETH() external onlyNativeEthRestakeAdmin {
+        // Get the current balance of the EigenPod
+        uint256 beforeEigenPodBalance = address(eigenPod).balance;
+
         // Call the start delayed withdraw function in the EigenPodManager
         // This will queue up a delayed withdrawal that will be sent back to this address after the timeout
         eigenPod.withdrawBeforeRestaking();
+
+        // Add to the total amount of pending rewards for this delayed withdrawal to the total we are tracking
+        pendingUnstakedDelayedWithdrawalAmount += (beforeEigenPodBalance -
+            address(eigenPod).balance);
     }
 
-    /// @dev Handle ETH sent to this contract - will get forwarded to the deposit queue for restaking as a protocol reward
-    receive() external payable nonReentrant {      
+    /**
+     * @notice Users should NOT send ETH directly to this contract unless they want to donate to existing ezETH holders.
+     *        This is an internal protocol function.
+     * @dev Handle ETH sent to this contract - will get forwarded to the deposit queue for restaking as a protocol reward
+     */
+    receive() external payable nonReentrant {
+        // If a payment comes in from the delayed withdrawal router, assume it is from the pending unstaked withdrawal
+        // and subtract that amount from the pending amount
+        if (msg.sender == address(eigenPod.delayedWithdrawalRouter())) {
+            if (msg.value <= pendingUnstakedDelayedWithdrawalAmount) {
+                // If it is less than we are tracking, subtract it
+                pendingUnstakedDelayedWithdrawalAmount -= msg.value;
+            } else {
+                // If it is more than we are tracking, set it to 0
+                pendingUnstakedDelayedWithdrawalAmount = 0;
+            }
+        }
+
         address destination = address(restakeManager.depositQueue());
-        (bool success, ) = destination.call{value: msg.value}("");
-        if(!success) revert TransferFailed();
+        (bool success, ) = destination.call{ value: msg.value }("");
+        if (!success) revert TransferFailed();
 
         emit RewardsForwarded(destination, msg.value);
     }

@@ -11,7 +11,7 @@ import "./Oracle/IRenzoOracle.sol";
 import "./Deposits/IDepositQueue.sol";
 import "./IRestakeManager.sol";
 
-abstract contract RestakeManagerStorageV1 is IRestakeManager {    
+abstract contract RestakeManagerStorageV1 is IRestakeManager {
     /// @dev reference to the RoleManager contract
     IRoleManager public roleManager;
 
@@ -35,7 +35,7 @@ abstract contract RestakeManagerStorageV1 is IRestakeManager {
     }
 
     /// @dev mapping of pending withdrawals, indexed by the withdrawal root from EigenLayer
-    mapping(bytes32 => PendingWithdrawal) public pendingWithdrawals;   
+    mapping(bytes32 => PendingWithdrawal) public pendingWithdrawals;
 
     /// @dev Stores the list of OperatorDelegators
     IOperatorDelegator[] public operatorDelegators;
@@ -60,6 +60,6 @@ abstract contract RestakeManagerStorageV1 is IRestakeManager {
     IDepositQueue public depositQueue;
 }
 
-abstract contract RestakeManagerStorageV2 is RestakeManagerStorageV1 {    
+abstract contract RestakeManagerStorageV2 is RestakeManagerStorageV1 {
     mapping(IERC20 => uint256) public collateralTokenTvlLimits;
 }

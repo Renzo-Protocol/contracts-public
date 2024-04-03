@@ -6,7 +6,6 @@ import "./RewardHandlerStorage.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../Errors/Errors.sol";
 
-
 /**
  * @author  Renzo Protocol
  * @title   RewardHandler
@@ -15,22 +14,19 @@ import "../Errors/Errors.sol";
  * @notice  .
  */
 contract RewardHandler is Initializable, ReentrancyGuardUpgradeable, RewardHandlerStorageV1 {
-
     /// @dev Allows only a whitelisted address to trigger native ETH staking
     modifier onlyNativeEthRestakeAdmin() {
-        if(!roleManager.isNativeEthRestakeAdmin(msg.sender)) revert NotNativeEthRestakeAdmin();
+        if (!roleManager.isNativeEthRestakeAdmin(msg.sender)) revert NotNativeEthRestakeAdmin();
         _;
     }
 
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyRestakeManagerAdmin() {
-        if(!roleManager.isRestakeManagerAdmin(msg.sender)) revert NotRestakeManagerAdmin();
+        if (!roleManager.isRestakeManagerAdmin(msg.sender)) revert NotRestakeManagerAdmin();
         _;
     }
 
-    event RewardDestinationUpdated(
-        address rewardDestination        
-    );
+    event RewardDestinationUpdated(address rewardDestination);
 
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -42,10 +38,10 @@ contract RewardHandler is Initializable, ReentrancyGuardUpgradeable, RewardHandl
     function initialize(IRoleManager _roleManager, address _rewardDestination) public initializer {
         __ReentrancyGuard_init();
 
-        if(address(_roleManager) == address(0x0)) revert InvalidZeroInput(); 
-        if(address(_rewardDestination) == address(0x0)) revert InvalidZeroInput(); 
-        
-        roleManager = _roleManager;   
+        if (address(_roleManager) == address(0x0)) revert InvalidZeroInput();
+        if (address(_rewardDestination) == address(0x0)) revert InvalidZeroInput();
+
+        roleManager = _roleManager;
         rewardDestination = _rewardDestination;
 
         emit RewardDestinationUpdated(_rewardDestination);
@@ -65,16 +61,18 @@ contract RewardHandler is Initializable, ReentrancyGuardUpgradeable, RewardHandl
 
     function _forwardETH() internal {
         uint256 balance = address(this).balance;
-        if(balance == 0) {
-          return;
+        if (balance == 0) {
+            return;
         }
 
-        (bool success, ) = rewardDestination.call{value: balance}("");
-        if(!success) revert TransferFailed();
+        (bool success, ) = rewardDestination.call{ value: balance }("");
+        if (!success) revert TransferFailed();
     }
 
-    function setRewardDestination(address _rewardDestination) external nonReentrant onlyRestakeManagerAdmin {
-        if(address(_rewardDestination) == address(0x0)) revert InvalidZeroInput(); 
+    function setRewardDestination(
+        address _rewardDestination
+    ) external nonReentrant onlyRestakeManagerAdmin {
+        if (address(_rewardDestination) == address(0x0)) revert InvalidZeroInput();
 
         rewardDestination = _rewardDestination;
 

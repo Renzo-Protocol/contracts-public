@@ -9,7 +9,7 @@ import {
 import "../../../Errors/Errors.sol";
 
 contract RenzoOracleL2 is Initializable, OwnableUpgradeable, RenzoOracleL2StorageV1 {
-    /// @dev The maxmimum staleness allowed for a price feed from chainlink
+    /// @dev The maximum staleness allowed for a price feed from chainlink
     uint256 public constant MAX_TIME_WINDOW = 86400 + 60; // 24 hours + 60 seconds
 
     event OracleAddressUpdated(address newOracle, address oldOracle);

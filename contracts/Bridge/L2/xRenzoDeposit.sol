@@ -157,7 +157,7 @@ contract xRenzoDeposit is
 
     /**
      * @notice  Accepts deposit for the user in the native asset and mints xezETH
-     * @dev     This funcion allows anyone to call and deposit the native asset for xezETH
+     * @dev     This function allows anyone to call and deposit the native asset for xezETH
      *          The native asset will be wrapped to WETH (if it is supported)
      *          ezETH will be immediately minted based on the current price
      *          Funds will be held until sweep() is called.
@@ -192,7 +192,7 @@ contract xRenzoDeposit is
 
     /**
      * @notice  Accepts deposit for the user in depositToken and mints xezETH
-     * @dev     This funcion allows anyone to call and deposit collateral for xezETH
+     * @dev     This function allows anyone to call and deposit collateral for xezETH
      *          ezETH will be immediately minted based on the current price
      *          Funds will be held until sweep() is called.
      *          User calling this function should first approve the tokens to be pulled via transferFrom

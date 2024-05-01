@@ -22,7 +22,7 @@ contract RenzoOracle is
     // Scale factor for all values of prices
     uint256 constant SCALE_FACTOR = 10 ** 18;
 
-    /// @dev The maxmimum staleness allowed for a price feed from chainlink
+    /// @dev The maximum staleness allowed for a price feed from chainlink
     uint256 constant MAX_TIME_WINDOW = 86400 + 60; // 24 hours + 60 seconds
 
     /// @dev Allows only a whitelisted address to configure the contract

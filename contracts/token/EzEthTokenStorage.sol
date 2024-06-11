@@ -12,7 +12,8 @@ contract EzEthTokenStorageV1 {
     IRoleManager public roleManager;
 
     /// @dev flag to control whether transfers are paused
-    bool public paused;
+    /// Deprecated: Token contract may no longer be paused
+    bool public _deprecated_paused;
 }
 
 /// On the next version of the protocol, if new variables are added, put them in the below

@@ -81,9 +81,9 @@ contract LockboxAdapterBlast {
         }
 
         SafeERC20.safeTransferFrom(IERC20(_erc20), msg.sender, address(this), _amount);
-        SafeERC20.safeApprove(IERC20(_erc20), lockbox, _amount);
+        SafeERC20.safeIncreaseAllowance(IERC20(_erc20), lockbox, _amount);
         IXERC20Lockbox(lockbox).deposit(_amount);
-        SafeERC20.safeApprove(IERC20(xerc20), blastStandardBridge, _amount);
+        SafeERC20.safeIncreaseAllowance(IERC20(xerc20), blastStandardBridge, _amount);
         L1StandardBridge(blastStandardBridge).bridgeERC20To(
             xerc20,
             _remoteToken,

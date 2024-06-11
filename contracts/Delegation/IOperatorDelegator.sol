@@ -10,14 +10,15 @@ interface IOperatorDelegator {
 
     function deposit(IERC20 _token, uint256 _tokenAmount) external returns (uint256 shares);
 
-    function startWithdrawal(IERC20 _token, uint256 _tokenAmount) external returns (bytes32);
+    // Note: Withdraws disabled for this release
+    // function startWithdrawal(IERC20 _token, uint256 _tokenAmount) external returns (bytes32);
 
-    function completeWithdrawal(
-        IStrategyManager.QueuedWithdrawal calldata _withdrawal,
-        IERC20 _token,
-        uint256 _middlewareTimesIndex,
-        address _sendToAddress
-    ) external;
+    // function completeWithdrawal(
+    //     IStrategyManager.DeprecatedStruct_QueuedWithdrawal calldata _withdrawal,
+    //     IERC20 _token,
+    //     uint256 _middlewareTimesIndex,
+    //     address _sendToAddress
+    // ) external;
 
     function getStakedETHBalance() external view returns (uint256);
 
@@ -30,4 +31,6 @@ interface IOperatorDelegator {
     function eigenPod() external view returns (IEigenPod);
 
     function pendingUnstakedDelayedWithdrawalAmount() external view returns (uint256);
+
+    function delegateAddress() external view returns (address);
 }

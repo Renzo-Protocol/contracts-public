@@ -44,10 +44,30 @@ abstract contract OperatorDelegatorStorageV1 is IOperatorDelegator {
 }
 
 abstract contract OperatorDelegatorStorageV2 is OperatorDelegatorStorageV1 {
+    /// @dev - DEPRECATED - This variable is no longer used
     uint256 public pendingUnstakedDelayedWithdrawalAmount;
+}
+
+abstract contract OperatorDelegatorStorageV3 is OperatorDelegatorStorageV2 {
+    /// @dev A base tx gas amount for a transaction to be added for redemption later - in gas units
+    uint256 public baseGasAmountSpent;
+
+    /// @dev A mapping to track how much gas was spent by an address
+    mapping(address => uint256) public adminGasSpentInWei;
+}
+
+abstract contract OperatorDelegatorStorageV4 is OperatorDelegatorStorageV3 {
+    /// @dev mapping of token shares in withdraw queue of EigenLayer
+    mapping(address => uint256) public queuedShares;
+
+    /// @dev bool mapping to track if withdrawal is already queued by withdrawalRoot
+    mapping(bytes32 => bool) public queuedWithdrawal;
+
+    /// @dev mapping of validatorStakedButNotVerifiedEth with the key as validatorPubkeyHash
+    mapping(bytes32 => uint256) public validatorStakedButNotVerifiedEth;
 }
 
 /// On the next version of the protocol, if new variables are added, put them in the below
 /// contract and use this as the inheritance chain.
-// abstract contract OperatorDelegatorStorageV3 is OperatorDelegatorStorageV2 {
+// abstract contract OperatorDelegatorStorageV4 is OperatorDelegatorStorageV3 {
 // }

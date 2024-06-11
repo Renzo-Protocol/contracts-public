@@ -52,7 +52,7 @@ error DelegateAddressAlreadySet();
 /// @dev Error when caller does not have ERC20 Rewards Admin role
 error NotERC20RewardsAdmin();
 
-/// @dev Error when ending ETH fails
+/// @dev Error when sending ETH fails
 error TransferFailed();
 
 /// @dev Error when caller does not have ETH Minter Burner Admin role
@@ -129,3 +129,42 @@ error InvalidBridgeFeeShare(uint256 bridgeFee);
 
 /// @dev Error for invalid sweep batch size
 error InvalidSweepBatchSize(uint256 batchSize);
+
+/// @dev Error when caller does not have Withdraw Queue admin role
+error NotWithdrawQueueAdmin();
+
+/// @dev Error when caller try to withdraw more than Buffer
+error NotEnoughWithdrawBuffer();
+
+/// @dev Error when caller try to claim withdraw before cooldown period
+error EarlyClaim();
+
+/// @dev Error when caller try to withdraw for unsupported asset
+error UnsupportedWithdrawAsset();
+
+/// @dev Error when caller try to claim invalidWithdrawIndex
+error InvalidWithdrawIndex();
+
+/// @dev Error when TVL was expected to be 0
+error InvalidTVL();
+
+/// @dev Error when incorrect BeaconChainStrategy is set for LST in completeQueuedWithdrawal
+error IncorrectStrategy();
+
+/// @dev Error when adding new OperatorDelegator which is not delegated
+error OperatoDelegatorNotDelegated();
+
+/// @dev Error when emergency tracking already tracked withdrawal
+error WithdrawalAlreadyTracked();
+
+/// @dev Error when emergency tracking already completed withdrawal
+error WithdrawalAlreadyCompleted();
+
+/// @dev Error when caller does not have Emergency Withdraw Tracking Admin role
+error NotEmergencyWithdrawTrackingAdmin();
+
+/// @dev Error when strategy does not have specified underlying
+error InvalidStrategy();
+
+/// @dev Error when strategy already set and hold non zero token balance
+error NonZeroUnderlyingStrategyExist();

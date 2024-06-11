@@ -7,8 +7,10 @@ import "./DepositQueueStorage.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../Errors/Errors.sol";
 
-contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueueStorageV1 {
+contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueueStorageV2 {
     using SafeERC20 for IERC20;
+
+    address public constant IS_NATIVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     event RewardsDeposited(IERC20 token, uint256 amount);
 
@@ -28,6 +30,15 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
     event ProtocolFeesPaid(IERC20 token, uint256 amount, address destination);
 
     event GasRefunded(address admin, uint256 gasRefunded);
+
+    /// @dev Event emitted when withdrawQueue is updated
+    event WithdrawQueueUpdated(address oldWithdrawQueue, address newWithdrawQueue);
+
+    /// @dev Event emitted when withdrawQueue buffer is filled for specified token
+    event BufferFilled(address token, uint256 amount);
+
+    /// @dev Event emitted when Full Withdrawal ETH is Received from Operator Delegators
+    event FullWithdrawalETHReceived(uint256 amount);
 
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyRestakeManagerAdmin() {
@@ -68,6 +79,16 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
         roleManager = _roleManager;
     }
 
+    /**
+     * @notice  Sets the withdrawal queue contract
+     * @dev     permissioned call (onlyRestakeManagerAdmin)
+     * @param   _withdrawQueue  new withdraw Queue contract address
+     */
+    function setWithdrawQueue(IWithdrawQueue _withdrawQueue) external onlyRestakeManagerAdmin {
+        if (address(_withdrawQueue) == address(0)) revert InvalidZeroInput();
+        emit WithdrawQueueUpdated(address(withdrawQueue), address(_withdrawQueue));
+        withdrawQueue = _withdrawQueue;
+    }
     /// @dev Sets the config for fees - if either value is set to 0 then fees are disabled
     function setFeeConfig(
         address _feeAddress,
@@ -98,14 +119,44 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
 
     /// @dev Handle ETH sent to the protocol through the RestakeManager - e.g. user deposits
     /// ETH will be stored here until used for a validator deposit
+    /// Fill the ETH withdraw buffer if required
     function depositETHFromProtocol() external payable onlyRestakeManager {
+        _checkAndFillETHWithdrawBuffer(msg.value);
         emit ETHDepositedFromProtocol(msg.value);
+    }
+
+    /**
+     * @notice  Fill up ERC20 withdraw buffer
+     * @dev     permissioned call (onlyRestakeManager)
+     * @param   _asset  address of asset to fill up the buffer for
+     * @param   _amount  amount of token to fill up the buffer with
+     */
+    function fillERC20withdrawBuffer(address _asset, uint256 _amount) external nonReentrant {
+        if (_amount == 0 || _asset == address(0)) revert InvalidZeroInput();
+        // safeTransfer from restake manager to this address
+        IERC20(_asset).safeTransferFrom(msg.sender, address(this), _amount);
+        // approve the token amount for withdraw queue
+        IERC20(_asset).safeIncreaseAllowance(address(withdrawQueue), _amount);
+        // call the withdraw queue to fill up the buffer
+        withdrawQueue.fillERC20WithdrawBuffer(_asset, _amount);
+    }
+
+    /**
+     * @notice  accepts full withdrawal ETH from Operator Delegators
+     * @notice  WARNING: users should not send ETH directly by this function
+     * @dev     check and fill ETH withdraw bufffer if required
+     */
+    function forwardFullWithdrawalETH() external payable nonReentrant {
+        // Check and fill ETH withdraw buffer if required
+        _checkAndFillETHWithdrawBuffer(msg.value);
+        emit FullWithdrawalETHReceived(msg.value);
     }
 
     /// @dev Handle ETH sent to this contract from outside the protocol - e.g. rewards
     /// ETH will be stored here until used for a validator deposit
     /// This should receive ETH from scenarios like Execution Layer Rewards and MEV from native staking
     /// Users should NOT send ETH directly to this contract unless they want to donate to existing ezETH holders
+    /// Checks the ETH withdraw Queue and fills up if required
     receive() external payable nonReentrant {
         uint256 feeAmount = 0;
         // Take protocol cut of rewards if enabled
@@ -116,12 +167,13 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
 
             emit ProtocolFeesPaid(IERC20(address(0x0)), feeAmount, feeAddress);
         }
-
-        // Add to the total earned
-        totalEarned[address(0x0)] = totalEarned[address(0x0)] + msg.value - feeAmount;
+        // update remaining rewards
+        uint256 remainingRewards = msg.value - feeAmount;
+        // Check and fill ETH withdraw buffer if required
+        _checkAndFillETHWithdrawBuffer(remainingRewards);
 
         // Emit the rewards event
-        emit RewardsDeposited(IERC20(address(0x0)), msg.value - feeAmount);
+        emit RewardsDeposited(IERC20(address(0x0)), remainingRewards);
     }
 
     /// @dev Function called by ETH Restake Admin to start the restaking process in Native ETH
@@ -207,11 +259,8 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
             }
 
             // Approve and deposit the rewards
-            token.approve(address(restakeManager), balance - feeAmount);
+            token.safeIncreaseAllowance(address(restakeManager), balance - feeAmount);
             restakeManager.depositTokenRewardsFromProtocol(token, balance - feeAmount);
-
-            // Add to the total earned
-            totalEarned[address(token)] = totalEarned[address(token)] + balance - feeAmount;
 
             // Emit the rewards event
             emit RewardsDeposited(IERC20(address(token)), balance - feeAmount);
@@ -223,10 +272,27 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
      * @param initialGas Initial Gas available
      */
     function _refundGas(uint256 initialGas) internal {
-        uint256 gasUsed = (initialGas - gasleft()) * tx.gasprice;
+        uint256 gasUsed = (initialGas - gasleft()) * block.basefee;
         uint256 gasRefund = address(this).balance >= gasUsed ? gasUsed : address(this).balance;
         (bool success, ) = payable(msg.sender).call{ value: gasRefund }("");
         if (!success) revert TransferFailed();
         emit GasRefunded(msg.sender, gasRefund);
+    }
+
+    /**
+     * @notice  Check if WithdrawBuffer Needs to be filled
+     */
+    function _checkAndFillETHWithdrawBuffer(uint256 _amount) internal {
+        // Check the withdraw buffer and fill if below buffer target
+        uint256 bufferToFill = withdrawQueue.getBufferDeficit(IS_NATIVE);
+
+        if (bufferToFill > 0) {
+            bufferToFill = (_amount <= bufferToFill) ? _amount : bufferToFill;
+
+            // fill withdraw buffer from received ETH
+            withdrawQueue.fillEthWithdrawBuffer{ value: bufferToFill }();
+
+            emit BufferFilled(IS_NATIVE, bufferToFill);
+        }
     }
 }

@@ -131,16 +131,8 @@ contract RenzoOracle is
             return _newValueAdded; // value is priced in base units, so divide by scale factor
         }
 
-        // Calculate the percentage of value after the deposit
-        uint256 inflationPercentaage = (SCALE_FACTOR * _newValueAdded) /
-            (_currentValueInProtocol + _newValueAdded);
-
-        // Calculate the new supply
-        uint256 newEzETHSupply = (_existingEzETHSupply * SCALE_FACTOR) /
-            (SCALE_FACTOR - inflationPercentaage);
-
-        // Subtract the old supply from the new supply to get the amount to mint
-        uint256 mintAmount = newEzETHSupply - _existingEzETHSupply;
+        // Calculate the mintAmount by current exchangeRate of ezETH priced in ETH
+        uint256 mintAmount = (_existingEzETHSupply * _newValueAdded) / _currentValueInProtocol;
 
         // Sanity check
         if (mintAmount == 0) revert InvalidTokenAmount();

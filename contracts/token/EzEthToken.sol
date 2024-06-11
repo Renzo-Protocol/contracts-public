@@ -47,30 +47,6 @@ contract EzEthToken is Initializable, ERC20Upgradeable, IEzEthToken, EzEthTokenS
         _burn(from, amount);
     }
 
-    /// @dev Sets the paused flag
-    function setPaused(bool _paused) external onlyTokenAdmin {
-        paused = _paused;
-    }
-
-    /// @dev
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual override {
-        super._beforeTokenTransfer(from, to, amount);
-
-        // If not paused return success
-        if (!paused) {
-            return;
-        }
-
-        // If paused, only minting and burning should be allowed
-        if (from != address(0) && to != address(0)) {
-            revert ContractPaused();
-        }
-    }
-
     /**
      * @dev Returns the name of the token.
      */

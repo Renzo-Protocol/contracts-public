@@ -168,7 +168,7 @@ contract xRenzoBridge is
         // Get the amount of ETH
         uint256 ethAmount = address(this).balance - ethBalanceBeforeWithdraw;
 
-        // Get the amonut of ezETH before the deposit
+        // Get the amount of ezETH before the deposit
         uint256 ezETHBalanceBeforeDeposit = ezETH.balanceOf(address(this));
 
         // Deposit it into Renzo RestakeManager

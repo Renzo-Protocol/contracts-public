@@ -43,7 +43,7 @@ error NotOracleAdmin();
 /// @dev Error when caller is not RestakeManager contract
 error NotRestakeManager();
 
-/// @dev Errror when caller does not have ETH Restake Admin role
+/// @dev Error when caller does not have ETH Restake Admin role
 error NotNativeEthRestakeAdmin();
 
 /// @dev Error when delegation address was already set - cannot be set again

@@ -45,4 +45,14 @@ interface IRoleManager {
     /// @dev Determined if the specified address has permission to send price feed of ezETH to L2
     /// @param potentialAddress Address to check
     function isPriceFeedSender(address potentialAddress) external view returns (bool);
+
+    /// @dev Determine if the specified address haas permission to update Withdraw Queue params
+    /// @param potentialAddress Address to check
+    function isWithdrawQueueAdmin(address potentialAddress) external view returns (bool);
+
+    /// @dev Determine if the specified address has permission to track emergency pending queued withdrawals
+    /// @param potentialAddress Address to check
+    function isEmergencyWithdrawTrackingAdmin(
+        address potentialAddress
+    ) external view returns (bool);
 }

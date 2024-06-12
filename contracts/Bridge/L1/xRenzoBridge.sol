@@ -144,8 +144,8 @@ contract xRenzoBridge is
         uint32 _origin,
         bytes memory
     ) external nonReentrant returns (bytes memory) {
-        // Only allow incoming messages from the Connext contract
-        if (msg.sender != address(connext)) {
+        // Only allow incoming messages from the Connext contract or bridge admin role
+        if (msg.sender != address(connext) && !roleManager.isBridgeAdmin(msg.sender)) {
             revert InvalidSender(address(connext), msg.sender);
         }
 
@@ -178,7 +178,7 @@ contract xRenzoBridge is
         uint256 ezETHAmount = ezETH.balanceOf(address(this)) - ezETHBalanceBeforeDeposit;
 
         // Approve the lockbox to spend the ezETH
-        ezETH.safeApprove(address(xezETHLockbox), ezETHAmount);
+        ezETH.safeIncreaseAllowance(address(xezETHLockbox), ezETHAmount);
 
         // Get the xezETH balance before the deposit
         uint256 xezETHBalanceBeforeDeposit = xezETH.balanceOf(address(this));
@@ -213,6 +213,10 @@ contract xRenzoBridge is
     ) external payable onlyPriceFeedSender nonReentrant {
         // call getRate() to get the current price of ezETH
         uint256 exchangeRate = rateProvider.getRate();
+
+        // check revert if price fetched by rate provider is undercollateralized
+        if (exchangeRate < 1 ether) revert InvalidOraclePrice();
+
         bytes memory _callData = abi.encode(exchangeRate, block.timestamp);
         // send price feed to renzo CCIP receivers
         for (uint256 i = 0; i < _destinationParam.length; ) {
@@ -292,7 +296,8 @@ contract xRenzoBridge is
      * @param   _to  destination address
      */
     function recoverNative(uint256 _amount, address _to) external onlyBridgeAdmin {
-        payable(_to).transfer(_amount);
+        (bool success, ) = payable(_to).call{ value: _amount }("");
+        if (!success) revert TransferFailed();
     }
 
     /**

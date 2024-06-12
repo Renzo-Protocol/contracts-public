@@ -10,6 +10,7 @@ import "./Permissions/IRoleManager.sol";
 import "./Oracle/IRenzoOracle.sol";
 import "./Deposits/IDepositQueue.sol";
 import "./IRestakeManager.sol";
+import "./Withdraw/IWithdrawQueue.sol";
 
 abstract contract RestakeManagerStorageV1 is IRestakeManager {
     /// @dev reference to the RoleManager contract
@@ -54,7 +55,8 @@ abstract contract RestakeManagerStorageV1 is IRestakeManager {
     bool public paused;
 
     /// @dev The max amount of TVL allowed.  If this is set to 0, no max TVL is enforced
-    uint256 public maxDepositTVL;
+    /// TVL Max limit is no longer being enforced
+    uint256 public _deprecated_maxDepositTVL;
 
     /// @dev Reference to the deposit queue contract
     IDepositQueue public depositQueue;

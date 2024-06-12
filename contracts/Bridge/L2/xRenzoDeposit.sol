@@ -328,15 +328,30 @@ contract xRenzoDeposit is
      * @param   _timestamp  The timestamp of the price update
      */
     function _updatePrice(uint256 _price, uint256 _timestamp) internal {
+        _beforeUpdatePrice(_price, _timestamp);
+
+        // Update values and emit event
+        lastPrice = _price;
+        lastPriceTimestamp = _timestamp;
+
+        emit PriceUpdated(_price, _timestamp);
+    }
+
+    function _beforeUpdatePrice(uint256 _price, uint256 _timestamp) internal view {
         // Check for 0
         if (_price == 0) {
             revert InvalidZeroInput();
         }
 
-        // Check for price divergence - more than 10%
+        // check for undercollateralized price - < 1
+        if (_price < 1 ether) {
+            revert InvalidOraclePrice();
+        }
+
+        // Check for price divergence - more than 1%
         if (
-            (_price > lastPrice && (_price - lastPrice) > (lastPrice / 10)) ||
-            (_price < lastPrice && (lastPrice - _price) > (lastPrice / 10))
+            (_price > lastPrice && (_price - lastPrice) > (lastPrice / 100)) ||
+            (_price < lastPrice && (lastPrice - _price) > (lastPrice / 100))
         ) {
             revert InvalidOraclePrice();
         }
@@ -350,12 +365,6 @@ contract xRenzoDeposit is
         if (_timestamp > block.timestamp) {
             revert InvalidTimestamp(_timestamp);
         }
-
-        // Update values and emit event
-        lastPrice = _price;
-        lastPriceTimestamp = _timestamp;
-
-        emit PriceUpdated(_price, _timestamp);
     }
 
     /**
@@ -366,7 +375,7 @@ contract xRenzoDeposit is
      */
     function _trade(uint256 _amountIn, uint256 _deadline) internal returns (uint256) {
         // Approve the deposit asset to the connext contract
-        depositToken.safeApprove(address(connext), _amountIn);
+        depositToken.safeIncreaseAllowance(address(connext), _amountIn);
 
         // We will accept any amount of tokens out here... The caller of this function should verify the amount meets minimums
         uint256 minOut = 0;
@@ -397,11 +406,21 @@ contract xRenzoDeposit is
         uint256 feeCollected = bridgeFeeCollected;
         bridgeFeeCollected = 0;
         // transfer collected fee to bridgeSweeper
-        uint256 balanceBefore = address(this).balance;
-        IWeth(address(depositToken)).withdraw(feeCollected);
-        feeCollected = address(this).balance - balanceBefore;
-        (bool success, ) = payable(msg.sender).call{ value: feeCollected }("");
-        if (!success) revert TransferFailed();
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        // If executing chain is BSC or XLayer then transfer WETH to bridgeSweeper
+        if (chainId == 56 || chainId == 196) {
+            IERC20(address(depositToken)).safeTransfer(msg.sender, feeCollected);
+        } else {
+            // transfer collected fee in ETH to bridgeSweeper
+            uint256 balanceBefore = address(this).balance;
+            IWeth(address(depositToken)).withdraw(feeCollected);
+            feeCollected = address(this).balance - balanceBefore;
+            bool success = payable(msg.sender).send(feeCollected);
+            if (!success) revert TransferFailed();
+        }
         emit SweeperBridgeFeeCollected(msg.sender, feeCollected);
     }
 
@@ -426,7 +445,7 @@ contract xRenzoDeposit is
         }
 
         // Approve it to the connext contract
-        collateralToken.safeApprove(address(connext), balance);
+        collateralToken.safeIncreaseAllowance(address(connext), balance);
 
         // Need to send some calldata so it triggers xReceive on the target
         bytes memory bridgeCallData = abi.encode(balance);
@@ -454,7 +473,11 @@ contract xRenzoDeposit is
      * @return  uint256  .
      */
     function getRate() external view override returns (uint256) {
-        return lastPrice;
+        (uint256 _lastPrice, uint256 _lastPriceTimestamp) = getMintRate();
+        if (block.timestamp > _lastPriceTimestamp + 1 days) {
+            revert OraclePriceExpired();
+        }
+        return _lastPrice;
     }
 
     /**

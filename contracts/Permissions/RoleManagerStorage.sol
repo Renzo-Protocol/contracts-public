@@ -41,3 +41,12 @@ contract RoleManagerStorageV2 is RoleManagerStorageV1 {
     /// @dev role to granting capability to send price feed of ezETH to L2
     bytes32 public constant PRICE_FEED_SENDER = keccak256("PRICE_FEED_SENDER");
 }
+
+contract RoleManagerStorageV3 is RoleManagerStorageV2 {
+    /// @dev role for granting capability to update withdraw queue buffer and cooldown period
+    bytes32 public constant WITHDRAW_QUEUE_ADMIN = keccak256("WITHDRAW_QUEUE_ADMIN");
+
+    /// @dev role for granting capability to track pending queued withdrawal shares caused by Operator undelegation
+    bytes32 public constant EMERGENCY_WITHDRAW_TRACKING_ADMIN =
+        keccak256("EMERGENCY_WITHDRAW_TRACKING_ADMIN");
+}

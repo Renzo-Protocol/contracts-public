@@ -11,7 +11,7 @@ import "../Errors/Errors.sol";
 /// Note: This contract is protected via a permissioned account set via the initializer.  Caution should
 /// be used as the owner could renounce the role leaving all future actions disabled.  Additionally,
 /// if a malicious account was able to obtain the role, they could use it to grant permissions to malicious accounts.
-contract RoleManager is IRoleManager, AccessControlUpgradeable, RoleManagerStorageV2 {
+contract RoleManager is IRoleManager, AccessControlUpgradeable, RoleManagerStorageV3 {
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -91,5 +91,19 @@ contract RoleManager is IRoleManager, AccessControlUpgradeable, RoleManagerStora
     /// @param potentialAddress Address to check
     function isPriceFeedSender(address potentialAddress) external view returns (bool) {
         return hasRole(PRICE_FEED_SENDER, potentialAddress);
+    }
+
+    /// @dev Determine if the specified address haas permission to update Withdraw Queue params
+    /// @param potentialAddress Address to check
+    function isWithdrawQueueAdmin(address potentialAddress) external view returns (bool) {
+        return hasRole(WITHDRAW_QUEUE_ADMIN, potentialAddress);
+    }
+
+    /// @dev Determine if the specified address has permission to track emergency pending queued withdrawals
+    /// @param potentialAddress Address to check
+    function isEmergencyWithdrawTrackingAdmin(
+        address potentialAddress
+    ) external view returns (bool) {
+        return hasRole(EMERGENCY_WITHDRAW_TRACKING_ADMIN, potentialAddress);
     }
 }

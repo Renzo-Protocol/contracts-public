@@ -7,10 +7,15 @@ import "./DepositQueueStorage.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../Errors/Errors.sol";
 
-contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueueStorageV2 {
+contract DepositQueue is
+    Initializable,
+    ReentrancyGuardUpgradeable,
+    DepositQueueStorageV2
+{
     using SafeERC20 for IERC20;
 
-    address public constant IS_NATIVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address public constant IS_NATIVE =
+        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     event RewardsDeposited(IERC20 token, uint256 amount);
 
@@ -32,7 +37,10 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
     event GasRefunded(address admin, uint256 gasRefunded);
 
     /// @dev Event emitted when withdrawQueue is updated
-    event WithdrawQueueUpdated(address oldWithdrawQueue, address newWithdrawQueue);
+    event WithdrawQueueUpdated(
+        address oldWithdrawQueue,
+        address newWithdrawQueue
+    );
 
     /// @dev Event emitted when withdrawQueue buffer is filled for specified token
     event BufferFilled(address token, uint256 amount);
@@ -42,7 +50,8 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
 
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyRestakeManagerAdmin() {
-        if (!roleManager.isRestakeManagerAdmin(msg.sender)) revert NotRestakeManagerAdmin();
+        if (!roleManager.isRestakeManagerAdmin(msg.sender))
+            revert NotRestakeManagerAdmin();
         _;
     }
 
@@ -54,13 +63,15 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
 
     /// @dev Allows only a whitelisted address to trigger native ETH staking
     modifier onlyNativeEthRestakeAdmin() {
-        if (!roleManager.isNativeEthRestakeAdmin(msg.sender)) revert NotNativeEthRestakeAdmin();
+        if (!roleManager.isNativeEthRestakeAdmin(msg.sender))
+            revert NotNativeEthRestakeAdmin();
         _;
     }
 
     /// @dev Allows only a whitelisted address to trigger ERC20 rewards sweeping
     modifier onlyERC20RewardsAdmin() {
-        if (!roleManager.isERC20RewardsAdmin(msg.sender)) revert NotERC20RewardsAdmin();
+        if (!roleManager.isERC20RewardsAdmin(msg.sender))
+            revert NotERC20RewardsAdmin();
         _;
     }
 
@@ -84,9 +95,14 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
      * @dev     permissioned call (onlyRestakeManagerAdmin)
      * @param   _withdrawQueue  new withdraw Queue contract address
      */
-    function setWithdrawQueue(IWithdrawQueue _withdrawQueue) external onlyRestakeManagerAdmin {
+    function setWithdrawQueue(
+        IWithdrawQueue _withdrawQueue
+    ) external onlyRestakeManagerAdmin {
         if (address(_withdrawQueue) == address(0)) revert InvalidZeroInput();
-        emit WithdrawQueueUpdated(address(withdrawQueue), address(_withdrawQueue));
+        emit WithdrawQueueUpdated(
+            address(withdrawQueue),
+            address(_withdrawQueue)
+        );
         withdrawQueue = _withdrawQueue;
     }
     /// @dev Sets the config for fees - if either value is set to 0 then fees are disabled
@@ -109,7 +125,9 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
     }
 
     /// @dev Sets the address of the RestakeManager contract
-    function setRestakeManager(IRestakeManager _restakeManager) external onlyRestakeManagerAdmin {
+    function setRestakeManager(
+        IRestakeManager _restakeManager
+    ) external onlyRestakeManagerAdmin {
         if (address(_restakeManager) == address(0x0)) revert InvalidZeroInput();
 
         restakeManager = _restakeManager;
@@ -131,7 +149,10 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
      * @param   _asset  address of asset to fill up the buffer for
      * @param   _amount  amount of token to fill up the buffer with
      */
-    function fillERC20withdrawBuffer(address _asset, uint256 _amount) external nonReentrant {
+    function fillERC20withdrawBuffer(
+        address _asset,
+        uint256 _amount
+    ) external nonReentrant {
         if (_amount == 0 || _asset == address(0)) revert InvalidZeroInput();
         // safeTransfer from restake manager to this address
         IERC20(_asset).safeTransferFrom(msg.sender, address(this), _amount);
@@ -162,7 +183,7 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
         // Take protocol cut of rewards if enabled
         if (feeAddress != address(0x0) && feeBasisPoints > 0) {
             feeAmount = (msg.value * feeBasisPoints) / 10000;
-            (bool success, ) = feeAddress.call{ value: feeAmount }("");
+            (bool success, ) = feeAddress.call{value: feeAmount}("");
             if (!success) revert TransferFailed();
 
             emit ProtocolFeesPaid(IERC20(address(0x0)), feeAmount, feeAddress);
@@ -186,14 +207,19 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
     ) external onlyNativeEthRestakeAdmin {
         uint256 gasBefore = gasleft();
         // Send the ETH and the params through to the restake manager
-        restakeManager.stakeEthInOperatorDelegator{ value: 32 ether }(
+        restakeManager.stakeEthInOperatorDelegator{value: 32 ether}(
             operatorDelegator,
             pubkey,
             signature,
             depositDataRoot
         );
 
-        emit ETHStakedFromQueue(operatorDelegator, pubkey, 32 ether, address(this).balance);
+        emit ETHStakedFromQueue(
+            operatorDelegator,
+            pubkey,
+            32 ether,
+            address(this).balance
+        );
 
         // Refund the gas to the Admin address if enough ETH available
         _refundGas(gasBefore);
@@ -220,7 +246,7 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
         uint256 arrayLength = operatorDelegators.length;
         for (uint256 i = 0; i < arrayLength; ) {
             // Send the ETH and the params through to the restake manager
-            restakeManager.stakeEthInOperatorDelegator{ value: 32 ether }(
+            restakeManager.stakeEthInOperatorDelegator{value: 32 ether}(
                 operatorDelegators[i],
                 pubkeys[i],
                 signatures[i],
@@ -259,8 +285,14 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
             }
 
             // Approve and deposit the rewards
-            token.safeIncreaseAllowance(address(restakeManager), balance - feeAmount);
-            restakeManager.depositTokenRewardsFromProtocol(token, balance - feeAmount);
+            token.safeIncreaseAllowance(
+                address(restakeManager),
+                balance - feeAmount
+            );
+            restakeManager.depositTokenRewardsFromProtocol(
+                token,
+                balance - feeAmount
+            );
 
             // Emit the rewards event
             emit RewardsDeposited(IERC20(address(token)), balance - feeAmount);
@@ -273,8 +305,10 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
      */
     function _refundGas(uint256 initialGas) internal {
         uint256 gasUsed = (initialGas - gasleft()) * block.basefee;
-        uint256 gasRefund = address(this).balance >= gasUsed ? gasUsed : address(this).balance;
-        (bool success, ) = payable(msg.sender).call{ value: gasRefund }("");
+        uint256 gasRefund = address(this).balance >= gasUsed
+            ? gasUsed
+            : address(this).balance;
+        (bool success, ) = payable(msg.sender).call{value: gasRefund}("");
         if (!success) revert TransferFailed();
         emit GasRefunded(msg.sender, gasRefund);
     }
@@ -284,13 +318,13 @@ contract DepositQueue is Initializable, ReentrancyGuardUpgradeable, DepositQueue
      */
     function _checkAndFillETHWithdrawBuffer(uint256 _amount) internal {
         // Check the withdraw buffer and fill if below buffer target
-        uint256 bufferToFill = withdrawQueue.getBufferDeficit(IS_NATIVE);
+        uint256 bufferToFill = withdrawQueue.getWithdrawDeficit(IS_NATIVE);
 
         if (bufferToFill > 0) {
             bufferToFill = (_amount <= bufferToFill) ? _amount : bufferToFill;
 
             // fill withdraw buffer from received ETH
-            withdrawQueue.fillEthWithdrawBuffer{ value: bufferToFill }();
+            withdrawQueue.fillEthWithdrawBuffer{value: bufferToFill}();
 
             emit BufferFilled(IS_NATIVE, bufferToFill);
         }

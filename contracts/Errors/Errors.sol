@@ -107,7 +107,10 @@ error InvalidZeroOutput();
 error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees);
 
 /// @dev error when source chain is not expected
-error InvalidSourceChain(uint64 expectedCCIPChainSelector, uint64 actualCCIPChainSelector);
+error InvalidSourceChain(
+    uint64 expectedCCIPChainSelector,
+    uint64 actualCCIPChainSelector
+);
 
 /// @dev Error when an unauthorized address tries to call the bridge function on the L2
 error UnauthorizedBridgeSweeper();
@@ -168,3 +171,6 @@ error InvalidStrategy();
 
 /// @dev Error when strategy already set and hold non zero token balance
 error NonZeroUnderlyingStrategyExist();
+
+/// @dev Error when caller tried to claim queued withdrawal when not filled
+error QueuedWithdrawalNotFilled();

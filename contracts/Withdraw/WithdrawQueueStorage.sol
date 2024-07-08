@@ -7,7 +7,8 @@ import "../IRestakeManager.sol";
 import "../token/IEzEthToken.sol";
 
 abstract contract WithdrawQueueStorageV1 {
-    address public constant IS_NATIVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address public constant IS_NATIVE =
+        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     struct TokenWithdrawBuffer {
         address asset;
@@ -48,4 +49,25 @@ abstract contract WithdrawQueueStorageV1 {
 
     /// @dev mapiing of withdraw requests array, indexed by user address
     mapping(address => WithdrawRequest[]) public withdrawRequests;
+}
+
+abstract contract WithdrawQueueStorageV2 is WithdrawQueueStorageV1 {
+    /// @dev Struct for the withdrawQueue
+    struct EthWithdrawQueue {
+        uint256 queuedWithdrawToFill;
+        uint256 queuedWithdrawFilled;
+    }
+
+    /// @dev Struct for WithdrawRequest queue status with expected to be filled
+    struct WithdrawQueueStatus {
+        bool queued;
+        uint256 fillAt;
+    }
+
+    /// @dev mapping of queued withdrawRequest, indexed by withdrawRequest hash
+    mapping(bytes32 => WithdrawQueueStatus) public withdrawQueued;
+
+    /// @dev mapping for asset withdrawQueue
+    /// @dev WithdrawQueue is a sliding window
+    EthWithdrawQueue public ethWithdrawQueue;
 }

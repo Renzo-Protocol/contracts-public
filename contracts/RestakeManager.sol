@@ -23,13 +23,20 @@ import "./Errors/Errors.sol";
             Users will interact with this contract to deposit and withdraw value into and from EigenLayer
             Ownership of deposited funds will be tracked via the ezETh token
  */
-contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeManagerStorageV2 {
+contract RestakeManager is
+    Initializable,
+    ReentrancyGuardUpgradeable,
+    RestakeManagerStorageV2
+{
     using SafeERC20 for IERC20;
     using SafeERC20Upgradeable for IEzEthToken;
 
     event OperatorDelegatorAdded(IOperatorDelegator od);
     event OperatorDelegatorRemoved(IOperatorDelegator od);
-    event OperatorDelegatorAllocationUpdated(IOperatorDelegator od, uint256 allocation);
+    event OperatorDelegatorAllocationUpdated(
+        IOperatorDelegator od,
+        uint256 allocation
+    );
 
     event CollateralTokenAdded(IERC20 token);
     event CollateralTokenRemoved(IERC20 token);
@@ -69,13 +76,15 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
 
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyRestakeManagerAdmin() {
-        if (!roleManager.isRestakeManagerAdmin(msg.sender)) revert NotRestakeManagerAdmin();
+        if (!roleManager.isRestakeManagerAdmin(msg.sender))
+            revert NotRestakeManagerAdmin();
         _;
     }
 
     /// @dev Allows only a whitelisted address to set pause state
     modifier onlyDepositWithdrawPauserAdmin() {
-        if (!roleManager.isDepositWithdrawPauser(msg.sender)) revert NotDepositWithdrawPauser();
+        if (!roleManager.isDepositWithdrawPauser(msg.sender))
+            revert NotDepositWithdrawPauser();
         _;
     }
 
@@ -135,8 +144,9 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         // Ensure it is not already in the list
         uint256 odLength = operatorDelegators.length;
         for (uint256 i = 0; i < odLength; ) {
-            if (address(operatorDelegators[i]) == address(_newOperatorDelegator))
-                revert AlreadyAdded();
+            if (
+                address(operatorDelegators[i]) == address(_newOperatorDelegator)
+            ) revert AlreadyAdded();
             unchecked {
                 ++i;
             }
@@ -147,7 +157,8 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
             revert OperatoDelegatorNotDelegated();
 
         // Verify a valid allocation
-        if (_allocationBasisPoints > (100 * BASIS_POINTS)) revert OverMaxBasisPoints();
+        if (_allocationBasisPoints > (100 * BASIS_POINTS))
+            revert OverMaxBasisPoints();
 
         // Add it to the list
         operatorDelegators.push(_newOperatorDelegator);
@@ -155,9 +166,14 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         emit OperatorDelegatorAdded(_newOperatorDelegator);
 
         // Set the allocation
-        operatorDelegatorAllocations[_newOperatorDelegator] = _allocationBasisPoints;
+        operatorDelegatorAllocations[
+            _newOperatorDelegator
+        ] = _allocationBasisPoints;
 
-        emit OperatorDelegatorAllocationUpdated(_newOperatorDelegator, _allocationBasisPoints);
+        emit OperatorDelegatorAllocationUpdated(
+            _newOperatorDelegator,
+            _allocationBasisPoints
+        );
     }
 
     /// @dev Allows a restake manager admin to remove an OperatorDelegator from the list
@@ -170,16 +186,24 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         // Remove it from the list
         uint256 odLength = operatorDelegators.length;
         for (uint256 i = 0; i < odLength; ) {
-            if (address(operatorDelegators[i]) == address(_operatorDelegatorToRemove)) {
+            if (
+                address(operatorDelegators[i]) ==
+                address(_operatorDelegatorToRemove)
+            ) {
                 // Do not allow an OD that has TVL to be removed
                 if (operatorDelegatorTVLs[i] > 0) revert InvalidTVL();
 
                 // Clear the allocation
                 operatorDelegatorAllocations[_operatorDelegatorToRemove] = 0;
-                emit OperatorDelegatorAllocationUpdated(_operatorDelegatorToRemove, 0);
+                emit OperatorDelegatorAllocationUpdated(
+                    _operatorDelegatorToRemove,
+                    0
+                );
 
                 // Remove from list
-                operatorDelegators[i] = operatorDelegators[operatorDelegators.length - 1];
+                operatorDelegators[i] = operatorDelegators[
+                    operatorDelegators.length - 1
+                ];
                 operatorDelegators.pop();
                 emit OperatorDelegatorRemoved(_operatorDelegatorToRemove);
                 return;
@@ -198,8 +222,10 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         IOperatorDelegator _operatorDelegator,
         uint256 _allocationBasisPoints
     ) external onlyRestakeManagerAdmin {
-        if (address(_operatorDelegator) == address(0x0)) revert InvalidZeroInput();
-        if (_allocationBasisPoints > (100 * BASIS_POINTS)) revert OverMaxBasisPoints();
+        if (address(_operatorDelegator) == address(0x0))
+            revert InvalidZeroInput();
+        if (_allocationBasisPoints > (100 * BASIS_POINTS))
+            revert OverMaxBasisPoints();
 
         // Ensure the OD is in the list to prevent mis-configuration
         bool foundOd = false;
@@ -216,17 +242,25 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         if (!foundOd) revert NotFound();
 
         // Set the allocation
-        operatorDelegatorAllocations[_operatorDelegator] = _allocationBasisPoints;
+        operatorDelegatorAllocations[
+            _operatorDelegator
+        ] = _allocationBasisPoints;
 
-        emit OperatorDelegatorAllocationUpdated(_operatorDelegator, _allocationBasisPoints);
+        emit OperatorDelegatorAllocationUpdated(
+            _operatorDelegator,
+            _allocationBasisPoints
+        );
     }
 
     /// @dev Allows restake manager to add a collateral token
-    function addCollateralToken(IERC20 _newCollateralToken) external onlyRestakeManagerAdmin {
+    function addCollateralToken(
+        IERC20 _newCollateralToken
+    ) external onlyRestakeManagerAdmin {
         // Ensure it is not already in the list
         uint256 tokenLength = collateralTokens.length;
         for (uint256 i = 0; i < tokenLength; ) {
-            if (address(collateralTokens[i]) == address(_newCollateralToken)) revert AlreadyAdded();
+            if (address(collateralTokens[i]) == address(_newCollateralToken))
+                revert AlreadyAdded();
             unchecked {
                 ++i;
             }
@@ -250,7 +284,9 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         IERC20 _collateralTokenToRemove
     ) external onlyRestakeManagerAdmin {
         // Get the token index - will revert if not found
-        uint256 collateralTokenIndex = getCollateralTokenIndex(_collateralTokenToRemove);
+        uint256 collateralTokenIndex = getCollateralTokenIndex(
+            _collateralTokenToRemove
+        );
 
         // Get the token TVLs of the ODs
         (uint256[][] memory operatorDelegatorTokenTVLs, , ) = calculateTVLs();
@@ -266,12 +302,18 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         }
 
         // Ensure there is no TVL in the withdrawal queue
-        if (_collateralTokenToRemove.balanceOf(address(depositQueue.withdrawQueue())) > 0) {
+        if (
+            _collateralTokenToRemove.balanceOf(
+                address(depositQueue.withdrawQueue())
+            ) > 0
+        ) {
             revert InvalidTVL();
         }
 
         // Switch it with the last item in the array
-        collateralTokens[collateralTokenIndex] = collateralTokens[collateralTokens.length - 1];
+        collateralTokens[collateralTokenIndex] = collateralTokens[
+            collateralTokens.length - 1
+        ];
 
         // Remove the last item in the array
         collateralTokens.pop();
@@ -287,9 +329,17 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
     /// @return operatorDelegatorTokenTVLs Each OD's TVL indexed by operatorDelegators array by collateralTokens array
     /// @return operatorDelegatorTVLs Each OD's Total TVL in order of operatorDelegators array
     /// @return totalTVL The total TVL across all operator delegators.
-    function calculateTVLs() public view returns (uint256[][] memory, uint256[] memory, uint256) {
-        uint256[][] memory operatorDelegatorTokenTVLs = new uint256[][](operatorDelegators.length);
-        uint256[] memory operatorDelegatorTVLs = new uint256[](operatorDelegators.length);
+    function calculateTVLs()
+        public
+        view
+        returns (uint256[][] memory, uint256[] memory, uint256)
+    {
+        uint256[][] memory operatorDelegatorTokenTVLs = new uint256[][](
+            operatorDelegators.length
+        );
+        uint256[] memory operatorDelegatorTVLs = new uint256[](
+            operatorDelegators.length
+        );
         uint256 totalTVL = 0;
 
         // Iterate through the ODs
@@ -303,7 +353,8 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         uint256 totalWithdrawalQueueValue = 0;
 
         for (uint256 i = 0; i < odLength; ) {
-            address operatorDelegatorDelegatedAddress = operatorDelegators[i].delegateAddress();
+            address operatorDelegatorDelegatedAddress = operatorDelegators[i]
+                .delegateAddress();
             /// @dev revert if OperatorDelegator is not delegated to any operator
             // verify OperatorDelegator delegation status
             if (
@@ -315,7 +366,9 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
             uint256 operatorTVL = 0;
 
             // Track the individual token TVLs for this OD - native ETH will be last item in the array
-            uint256[] memory operatorValues = new uint256[](collateralTokens.length + 1);
+            uint256[] memory operatorValues = new uint256[](
+                collateralTokens.length + 1
+            );
             operatorDelegatorTokenTVLs[i] = operatorValues;
 
             // Iterate through the tokens and get the value of each
@@ -323,9 +376,8 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
             for (uint256 j = 0; j < tokenLength; ) {
                 // Get the value of this token
 
-                uint256 operatorBalance = operatorDelegators[i].getTokenBalanceFromStrategy(
-                    collateralTokens[j]
-                );
+                uint256 operatorBalance = operatorDelegators[i]
+                    .getTokenBalanceFromStrategy(collateralTokens[j]);
 
                 // Set the value in the array for this OD
                 operatorValues[j] = renzoOracle.lookupTokenValue(
@@ -350,7 +402,8 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
             }
 
             // Get the value of native ETH staked for the OD
-            uint256 operatorEthBalance = operatorDelegators[i].getStakedETHBalance();
+            uint256 operatorEthBalance = operatorDelegators[i]
+                .getStakedETHBalance();
 
             // Save it to the array for the OD
             operatorValues[operatorValues.length - 1] = operatorEthBalance;
@@ -376,7 +429,8 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         totalTVL += address(depositQueue).balance;
 
         // Add native ETH help in withdraw Queue and totalWithdrawalQueueValue to totalTVL
-        totalTVL += (address(withdrawQueue).balance + totalWithdrawalQueueValue);
+        totalTVL += (address(withdrawQueue).balance +
+            totalWithdrawalQueueValue);
 
         return (operatorDelegatorTokenTVLs, operatorDelegatorTVLs, totalTVL);
     }
@@ -400,7 +454,8 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         for (uint256 i = 0; i < tvlLength; ) {
             if (
                 tvls[i] <
-                (operatorDelegatorAllocations[operatorDelegators[i]] * totalTVL) /
+                (operatorDelegatorAllocations[operatorDelegators[i]] *
+                    totalTVL) /
                     BASIS_POINTS /
                     BASIS_POINTS
             ) {
@@ -442,7 +497,8 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         for (uint256 i = 0; i < odLength; ) {
             if (
                 operatorDelegatorTVLs[i] >
-                (operatorDelegatorAllocations[operatorDelegators[i]] * totalTVL) /
+                (operatorDelegatorAllocations[operatorDelegators[i]] *
+                    totalTVL) /
                     BASIS_POINTS /
                     BASIS_POINTS &&
                 operatorDelegatorTokenTVLs[i][tokenIndex] >= ezETHValue
@@ -472,7 +528,9 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
 
     /// @dev Finds the index of the collateral token in the list
     /// Reverts if the token is not found in the list
-    function getCollateralTokenIndex(IERC20 _collateralToken) public view returns (uint256) {
+    function getCollateralTokenIndex(
+        IERC20 _collateralToken
+    ) public view returns (uint256) {
         // Find the token index
         uint256 tokenLength = collateralTokens.length;
         for (uint256 i = 0; i < tokenLength; ) {
@@ -528,7 +586,10 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         ) = calculateTVLs();
 
         // Get the value of the collateral token being deposited
-        uint256 collateralTokenValue = renzoOracle.lookupTokenValue(_collateralToken, _amount);
+        uint256 collateralTokenValue = renzoOracle.lookupTokenValue(
+            _collateralToken,
+            _amount
+        );
 
         // Enforce individual token TVL limit if set, 0 means the check is not enabled
         if (collateralTokenTvlLimits[_collateralToken] != 0) {
@@ -545,39 +606,52 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
             }
 
             // Check if it is over the limit
-            if (currentTokenTVL + collateralTokenValue > collateralTokenTvlLimits[_collateralToken])
-                revert MaxTokenTVLReached();
+            if (
+                currentTokenTVL + collateralTokenValue >
+                collateralTokenTvlLimits[_collateralToken]
+            ) revert MaxTokenTVLReached();
         }
 
         // Determine which operator delegator to use
         IOperatorDelegator operatorDelegator = chooseOperatorDelegatorForDeposit(
-            operatorDelegatorTVLs,
-            totalTVL
-        );
+                operatorDelegatorTVLs,
+                totalTVL
+            );
 
         // Transfer the collateral token to this address
         _collateralToken.safeTransferFrom(msg.sender, address(this), _amount);
 
         // Check the withdraw buffer and fill if below buffer target
-        uint256 bufferToFill = depositQueue.withdrawQueue().getBufferDeficit(
-            address(_collateralToken)
-        );
-        if (bufferToFill > 0) {
-            bufferToFill = (_amount <= bufferToFill) ? _amount : bufferToFill;
+        uint256 withdrawDeficitToFill = depositQueue
+            .withdrawQueue()
+            .getWithdrawDeficit(address(_collateralToken));
+        if (withdrawDeficitToFill > 0) {
+            withdrawDeficitToFill = (_amount <= withdrawDeficitToFill)
+                ? _amount
+                : withdrawDeficitToFill;
             // update amount to send to the operator Delegator
-            _amount -= bufferToFill;
+            _amount -= withdrawDeficitToFill;
 
             // safe Approve for depositQueue
-            _collateralToken.safeIncreaseAllowance(address(depositQueue), bufferToFill);
+            _collateralToken.safeIncreaseAllowance(
+                address(depositQueue),
+                withdrawDeficitToFill
+            );
 
             // fill Withdraw Buffer via depositQueue
-            depositQueue.fillERC20withdrawBuffer(address(_collateralToken), bufferToFill);
+            depositQueue.fillERC20withdrawBuffer(
+                address(_collateralToken),
+                withdrawDeficitToFill
+            );
         }
 
         //  check if amount needs to be sent to operatorDelegator
         if (_amount > 0) {
             // Approve the tokens to the operator delegator
-            _collateralToken.safeIncreaseAllowance(address(operatorDelegator), _amount);
+            _collateralToken.safeIncreaseAllowance(
+                address(operatorDelegator),
+                _amount
+            );
 
             // Call deposit on the operator delegator
             operatorDelegator.deposit(_collateralToken, _amount);
@@ -594,7 +668,13 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         ezETH.mint(msg.sender, ezETHToMint);
 
         // Emit the deposit event
-        emit Deposit(msg.sender, _collateralToken, _amount, ezETHToMint, _referralId);
+        emit Deposit(
+            msg.sender,
+            _collateralToken,
+            _amount,
+            ezETHToMint,
+            _referralId
+        );
     }
 
     /**
@@ -611,12 +691,14 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
      * staked later by a validator.  Once staked it will be deposited into EigenLayer.
      * * @param   _referralId  The referral ID to use for the deposit (can be 0 if none)
      */
-    function depositETH(uint256 _referralId) public payable nonReentrant notPaused {
+    function depositETH(
+        uint256 _referralId
+    ) public payable nonReentrant notPaused {
         // Get the total TVL
         (, , uint256 totalTVL) = calculateTVLs();
 
         // Deposit the remaining ETH into the DepositQueue
-        depositQueue.depositETHFromProtocol{ value: msg.value }();
+        depositQueue.depositETHFromProtocol{value: msg.value}();
 
         // Calculate how much ezETH to mint
         uint256 ezETHToMint = renzoOracle.calculateMintAmount(
@@ -629,7 +711,13 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         ezETH.mint(msg.sender, ezETHToMint);
 
         // Emit the deposit event
-        emit Deposit(msg.sender, IERC20(address(0x0)), msg.value, ezETHToMint, _referralId);
+        emit Deposit(
+            msg.sender,
+            IERC20(address(0x0)),
+            msg.value,
+            ezETHToMint,
+            _referralId
+        );
     }
 
     /// @dev Called by the deposit queue to stake ETH to a validator
@@ -656,7 +744,11 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         if (!found) revert NotFound();
 
         // Call the OD to stake the ETH
-        operatorDelegator.stakeEth{ value: msg.value }(pubkey, signature, depositDataRoot);
+        operatorDelegator.stakeEth{value: msg.value}(
+            pubkey,
+            signature,
+            depositDataRoot
+        );
     }
 
     /// @dev Deposit ERC20 token rewards from the Deposit Queue
@@ -666,13 +758,17 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         uint256 _amount
     ) external onlyDepositQueue {
         // Get the TVLs for each operator delegator and the total TVL
-        (, uint256[] memory operatorDelegatorTVLs, uint256 totalTVL) = calculateTVLs();
+        (
+            ,
+            uint256[] memory operatorDelegatorTVLs,
+            uint256 totalTVL
+        ) = calculateTVLs();
 
         // Determine which operator delegator to use
         IOperatorDelegator operatorDelegator = chooseOperatorDelegatorForDeposit(
-            operatorDelegatorTVLs,
-            totalTVL
-        );
+                operatorDelegatorTVLs,
+                totalTVL
+            );
 
         // Transfer the tokens to this address
         _token.safeTransferFrom(msg.sender, address(this), _amount);
@@ -684,7 +780,10 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         operatorDelegator.deposit(_token, _amount);
     }
 
-    function setTokenTvlLimit(IERC20 _token, uint256 _limit) external onlyRestakeManagerAdmin {
+    function setTokenTvlLimit(
+        IERC20 _token,
+        uint256 _limit
+    ) external onlyRestakeManagerAdmin {
         // Verify collateral token is in the list - call will revert if not found
         getCollateralTokenIndex(_token);
 

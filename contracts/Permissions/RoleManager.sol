@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "./IRoleManager.sol";
@@ -11,7 +11,7 @@ import "../Errors/Errors.sol";
 /// Note: This contract is protected via a permissioned account set via the initializer.  Caution should
 /// be used as the owner could renounce the role leaving all future actions disabled.  Additionally,
 /// if a malicious account was able to obtain the role, they could use it to grant permissions to malicious accounts.
-contract RoleManager is IRoleManager, AccessControlUpgradeable, RoleManagerStorageV3 {
+contract RoleManager is IRoleManager, AccessControlUpgradeable, RoleManagerStorageV6 {
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -105,5 +105,27 @@ contract RoleManager is IRoleManager, AccessControlUpgradeable, RoleManagerStora
         address potentialAddress
     ) external view returns (bool) {
         return hasRole(EMERGENCY_WITHDRAW_TRACKING_ADMIN, potentialAddress);
+    }
+
+    /// @dev Determine if the specified address has permission to process EigenLayer rewards
+    /// @param potentialAddress Address to check
+    function isEigenLayerRewardsAdmin(address potentialAddress) external view returns (bool) {
+        return hasRole(EIGEN_LAYER_REWARDS_ADMIN, potentialAddress);
+    }
+
+    /// @dev Determin if the specified address has permission to track missed Checkpoints Exit Balance
+    /// @param potentialAddress Address to check
+    function isEmergencyCheckpointTrackingAdmin(
+        address potentialAddress
+    ) external view returns (bool) {
+        return hasRole(EMERGENCY_CHECKPOINT_TRACKING_ADMIN, potentialAddress);
+    }
+
+    /// @dev Determin if the specified address has permission to track AVS ETH slashing amount
+    /// @param potentialAddress Address to check
+    function isEmergencyTrackAVSEthSlashingAdmin(
+        address potentialAddress
+    ) external view returns (bool) {
+        return hasRole(EMERGENCY_AVS_ETH_SLASH_TRACKING_ADMIN, potentialAddress);
     }
 }

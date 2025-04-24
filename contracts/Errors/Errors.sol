@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 /// @dev Error for 0x0 address inputs
 error InvalidZeroInput();
@@ -107,10 +107,7 @@ error InvalidZeroOutput();
 error NotEnoughBalance(uint256 currentBalance, uint256 calculatedFees);
 
 /// @dev error when source chain is not expected
-error InvalidSourceChain(
-    uint64 expectedCCIPChainSelector,
-    uint64 actualCCIPChainSelector
-);
+error InvalidSourceChain(uint64 expectedCCIPChainSelector, uint64 actualCCIPChainSelector);
 
 /// @dev Error when an unauthorized address tries to call the bridge function on the L2
 error UnauthorizedBridgeSweeper();
@@ -174,3 +171,51 @@ error NonZeroUnderlyingStrategyExist();
 
 /// @dev Error when caller tried to claim queued withdrawal when not filled
 error QueuedWithdrawalNotFilled();
+
+/// @dev Error when caller does not have EigenLayerRewardsAdmin role
+error NotEigenLayerRewardsAdmin();
+
+/// @dev Error when rewardsDestination is not configured while trying to claim
+error RewardsDestinationNotConfigured();
+
+/// @dev Error when WETHUnwrapper is not configured while trying to claim WETH restaking rewards
+error WETHUnwrapperNotConfigured();
+
+/// @dev Error when currentCheckpoint is not accounted by OperatorDelegator
+error CheckpointAlreadyActive();
+
+/// @dev Error when specified checkpoint is already recorded
+error CheckpointAlreadyRecorded();
+
+/// @dev Error when caller does not have Emergency Checkpoint Tracking admin role
+error NotEmergencyCheckpointTrackingAdmin();
+
+/// @dev Error when last completed checkpoint on EigenPod is not recorded in OperatorDelegator
+error CheckpointNotRecorded();
+
+/// @dev Error when non pauser tries to change pause state
+error NotPauser();
+
+/// @dev Error when user tried to withdraw asset more than available in protocol collateral
+error NotEnoughCollateralValue();
+
+/// @dev Error when admin tries to disable asset withdraw queue which is not enabled
+error WithdrawQueueNotEnabled();
+
+/// @dev Error when admin tries to enable erc20 withdraw queue for IS_NATIVE address
+error IsNativeAddressNotAllowed();
+
+/// @dev Error when admin tried to complete queued withdrawal with receiveAsShares
+error OnlyReceiveAsTokenAllowed();
+
+/// @dev Error when Withdrawal is not queued
+error WithdrawalNotQueued();
+
+/// @dev Error when admin tries to track Withdraw of different staker
+error InvalidStakerAddress();
+
+/// @dev Error when caller does not have Emergency track AVS ETH slashing admin role
+error NotEmergencyTrackAVSEthSlashingAdmin();
+
+/// @dev Error when below the limit
+error BelowAllowedLimit();

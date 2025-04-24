@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 /// @title RoleManagerStorage
 /// @dev This contract will hold all local variables for the RoleManager Contract
@@ -49,4 +49,21 @@ contract RoleManagerStorageV3 is RoleManagerStorageV2 {
     /// @dev role for granting capability to track pending queued withdrawal shares caused by Operator undelegation
     bytes32 public constant EMERGENCY_WITHDRAW_TRACKING_ADMIN =
         keccak256("EMERGENCY_WITHDRAW_TRACKING_ADMIN");
+}
+
+contract RoleManagerStorageV4 is RoleManagerStorageV3 {
+    /// @dev role for granting capability to process and claim EigenLayer rewards
+    bytes32 public constant EIGEN_LAYER_REWARDS_ADMIN = keccak256("EIGEN_LAYER_REWARDS_ADMIN");
+}
+
+contract RoleManagerStorageV5 is RoleManagerStorageV4 {
+    /// @dev role for granting capability to track and record exit balance for missed checkpoints
+    bytes32 public constant EMERGENCY_CHECKPOINT_TRACKING_ADMIN =
+        keccak256("EMERGENCY_CHECKPOINT_TRACKING_ADMIN");
+}
+
+contract RoleManagerStorageV6 is RoleManagerStorageV5 {
+    /// @dev role for granting capability to update the gas amount spent by admin
+    bytes32 public constant EMERGENCY_AVS_ETH_SLASH_TRACKING_ADMIN =
+        keccak256("EMERGENCY_AVS_ETH_SLASH_TRACKING_ADMIN");
 }

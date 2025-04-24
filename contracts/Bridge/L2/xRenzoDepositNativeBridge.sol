@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
-import "./xRenzoDepositStorage.sol";
+import "./xRenzoDepositNativeBridgeStorage.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {
     OwnableUpgradeable
@@ -24,12 +24,12 @@ import "../../RateProvider/IRateProvider.sol";
  * @notice  Allows L2 minting of xezETH tokens in exchange for deposited assets
  */
 
-contract xRenzoDeposit is
+contract xRenzoDepositNativeBridge is
     Initializable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
     IRateProvider,
-    xRenzoDepositStorageV3
+    xRenzoDepositNativeBridgeStorageV1
 {
     using SafeERC20 for IERC20;
 
@@ -39,20 +39,26 @@ contract xRenzoDeposit is
     /// @dev - Fee basis point, 100 basis point = 1 %
     uint32 public constant FEE_BASIS = 10000;
 
+    IERC20 public constant ETH_NATIVE_TOKEN_ADDRESS =
+        IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+
+    uint256 public constant MIN_DUST_BRIDGE = 500000 gwei;
+
     event PriceUpdated(uint256 price, uint256 timestamp);
     event Deposit(address indexed user, uint256 amountIn, uint256 amountOut);
     event BridgeSweeperAddressUpdated(address sweeper, bool allowed);
-    event BridgeSwept(
-        uint32 destinationDomain,
-        address destinationTarget,
-        address delegate,
-        uint256 amount
-    );
-    event OraclePriceFeedUpdated(address newOracle, address oldOracle);
+    event BridgeSwept(address token, uint256 amount, address sweeper);
     event ReceiverPriceFeedUpdated(address newReceiver, address oldReceiver);
-    event SweeperBridgeFeeCollected(address sweeper, uint256 feeCollected);
+    event SweeperBridgeFeeCollected(address sweeper, address token, uint256 feeCollected);
     event BridgeFeeShareUpdated(uint256 oldBridgeFeeShare, uint256 newBridgeFeeShare);
     event SweepBatchSizeUpdated(uint256 oldSweepBatchSize, uint256 newSweepBatchSize);
+    event TokenSupportUpdated(
+        address token,
+        bool supported,
+        address oracle,
+        address valueTransferBridge
+    );
+    event TokenTimeDiscountUpdated(address token, uint256 oldDiscount, uint256 newDiscount);
 
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -65,52 +71,45 @@ contract xRenzoDeposit is
      * @dev     All tokens are expected to have 18 decimals
      * @param   _currentPrice  Initializes it with an initial price of ezETH to ETH
      * @param   _xezETH  L2 ezETH token
-     * @param   _depositToken  WETH on L2
-     * @param   _collateralToken  nextWETH on L2
-     * @param   _connext  Connext contract
-     * @param   _swapKey  Swap key for the connext contract swap from WETH to nextWETH
+     * @param   _weth  WETH token for wrapping ETH - can be 0x0 if not supported
      * @param   _receiver Renzo Receiver middleware contract for price feed
-     * @param   _oracle Price feed oracle for ezETH
+     * @param   _mainnetDestinationDomain  The mainnet destination domain to receive bridge funds
+     * @param   _mainnetRecipient  The contract on mainnet to receive bridge funds
+     * @param   _bridgeFeeCollector  The address to collect bridge fees - is sent funds as they are collected
      */
     function initialize(
         uint256 _currentPrice,
         IERC20 _xezETH,
-        IERC20 _depositToken,
-        IERC20 _collateralToken,
-        IConnext _connext,
-        bytes32 _swapKey,
+        IWeth _weth,
         address _receiver,
-        uint32 _bridgeDestinationDomain,
-        address _bridgeTargetAddress,
-        IRenzoOracleL2 _oracle
+        uint32 _mainnetDestinationDomain,
+        address _mainnetRecipient,
+        address _bridgeFeeCollector
     ) public initializer {
         // Initialize inherited classes
         __Ownable_init();
+        __ReentrancyGuard_init();
 
         // Verify valid non zero values
         if (
             _currentPrice == 0 ||
             address(_xezETH) == address(0) ||
-            address(_depositToken) == address(0) ||
-            address(_collateralToken) == address(0) ||
-            address(_connext) == address(0) ||
-            _swapKey == 0 ||
-            _bridgeDestinationDomain == 0 ||
-            _bridgeTargetAddress == address(0)
+            address(_weth) == address(0) ||
+            address(_receiver) == address(0) ||
+            _mainnetDestinationDomain == 0 ||
+            _mainnetRecipient == address(0) ||
+            _bridgeFeeCollector == address(0)
         ) {
             revert InvalidZeroInput();
         }
 
         // Verify all tokens have 18 decimals
-        uint8 decimals = IERC20MetadataUpgradeable(address(_depositToken)).decimals();
+        uint8 decimals = IERC20MetadataUpgradeable(address(_xezETH)).decimals();
         if (decimals != EXPECTED_DECIMALS) {
             revert InvalidTokenDecimals(EXPECTED_DECIMALS, decimals);
         }
-        decimals = IERC20MetadataUpgradeable(address(_collateralToken)).decimals();
-        if (decimals != EXPECTED_DECIMALS) {
-            revert InvalidTokenDecimals(EXPECTED_DECIMALS, decimals);
-        }
-        decimals = IERC20MetadataUpgradeable(address(_xezETH)).decimals();
+
+        decimals = IERC20MetadataUpgradeable(address(_weth)).decimals();
         if (decimals != EXPECTED_DECIMALS) {
             revert InvalidTokenDecimals(EXPECTED_DECIMALS, decimals);
         }
@@ -122,45 +121,30 @@ contract xRenzoDeposit is
         // Set xezETH address
         xezETH = _xezETH;
 
-        // Set the depoist token
-        depositToken = _depositToken;
+        // Set WETH address
+        weth = _weth;
 
-        // Set the collateral token
-        collateralToken = _collateralToken;
-
-        // Set the connext contract
-        connext = _connext;
-
-        // Set the swap key
-        swapKey = _swapKey;
-
-        // Set receiver contract address
+        // Set price receiver contract address
         receiver = _receiver;
-        // Connext router fee is 5 basis points
-        bridgeRouterFeeBps = 5;
 
-        // Set the bridge destination domain
-        bridgeDestinationDomain = _bridgeDestinationDomain;
-
-        // Set the bridge target address
-        bridgeTargetAddress = _bridgeTargetAddress;
-
-        // set oracle Price Feed struct
-        oracle = _oracle;
+        // Set the destination domain and recipient
+        mainnetDestinationDomain = _mainnetDestinationDomain;
+        mainnetRecipient = _mainnetRecipient;
 
         // set bridge Fee Share 0.05% where 100 basis point = 1%
         bridgeFeeShare = 5;
 
         //set sweep batch size to 32 ETH
         sweepBatchSize = 32 ether;
+
+        // Set the bridge fee collector
+        bridgeFeeCollector = _bridgeFeeCollector;
     }
 
     /**
      * @notice  Accepts deposit for the user in the native asset and mints xezETH
-     * @dev     This funcion allows anyone to call and deposit the native asset for xezETH
-     *          The native asset will be wrapped to WETH (if it is supported)
+     * @dev     This function allows anyone to call and deposit the native asset for xezETH
      *          ezETH will be immediately minted based on the current price
-     *          Funds will be held until sweep() is called.
      * @param   _minOut  Minimum number of xezETH to accept to ensure slippage minimums
      * @param   _deadline  latest timestamp to accept this transaction
      * @return  uint256  Amount of xezETH minted to calling account
@@ -173,21 +157,31 @@ contract xRenzoDeposit is
             revert InvalidZeroInput();
         }
 
-        // Get the deposit token balance before
-        uint256 depositBalanceBefore = depositToken.balanceOf(address(this));
+        // Calculate bridgeFee for deposit amount
+        uint256 bridgeFee = getBridgeFeeShare(msg.value);
 
-        // Wrap the deposit ETH to WETH
-        IWeth(address(depositToken)).deposit{ value: msg.value }();
+        // Send the eth fee to the bridgeFeeCollector
+        if (bridgeFee > 0) {
+            bool success = payable(bridgeFeeCollector).send(bridgeFee);
+            if (!success) revert TransferFailed();
 
-        // Get the amount of tokens that were wrapped
-        uint256 wrappedAmount = depositToken.balanceOf(address(this)) - depositBalanceBefore;
-
-        // Sanity check for 0
-        if (wrappedAmount == 0) {
-            revert InvalidZeroOutput();
+            emit SweeperBridgeFeeCollected(
+                bridgeFeeCollector,
+                address(ETH_NATIVE_TOKEN_ADDRESS),
+                bridgeFee
+            );
         }
 
-        return _deposit(wrappedAmount, _minOut, _deadline);
+        // Remaining amount after bridge fee
+        uint256 remainingAmount = msg.value - bridgeFee;
+
+        // Sanity check amount
+        if (remainingAmount == 0) {
+            revert InvalidZeroInput();
+        }
+
+        // Deposit remaining amount to mint xezETH
+        return _deposit(ETH_NATIVE_TOKEN_ADDRESS, remainingAmount, _minOut, _deadline);
     }
 
     /**
@@ -202,55 +196,81 @@ contract xRenzoDeposit is
      * @return  uint256  Amount of xezETH minted to calling account
      */
     function deposit(
+        IERC20 _token,
         uint256 _amountIn,
         uint256 _minOut,
         uint256 _deadline
     ) external nonReentrant returns (uint256) {
+        // Verify the amount is valid
         if (_amountIn == 0) {
             revert InvalidZeroInput();
         }
 
         // Transfer deposit tokens from user to this contract
-        depositToken.safeTransferFrom(msg.sender, address(this), _amountIn);
+        _token.safeTransferFrom(msg.sender, address(this), _amountIn);
 
-        return _deposit(_amountIn, _minOut, _deadline);
+        // calculate bridgeFee for deposit amount
+        uint256 bridgeFee = getBridgeFeeShare(_amountIn);
+
+        // Send the fee to the bridgeFeeCollector
+        if (bridgeFee > 0) {
+            _token.safeTransfer(bridgeFeeCollector, bridgeFee);
+
+            emit SweeperBridgeFeeCollected(bridgeFeeCollector, address(_token), bridgeFee);
+        }
+
+        // subtract from _amountIn
+        _amountIn -= bridgeFee;
+
+        // Get the ETH value of the token
+        uint256 tokenEthValue = _getTokenEthValue(_token, _amountIn);
+        if (tokenEthValue == 0) {
+            revert InvalidZeroOutput();
+        }
+
+        // Special Case if the token is WETH... unwrap to ETH
+        if (_token == IERC20(address(weth))) {
+            // Unwrap WETH to ETH
+            weth.withdraw(_amountIn);
+        }
+
+        return _deposit(_token, tokenEthValue, _minOut, _deadline);
     }
 
     /**
-     * @notice  Internal function to trade deposit tokens for nextWETH and mint xezETH
+     * @notice  Internal function to trade deposit tokens
      * @dev     Deposit Tokens should be available in the contract before calling this function
-     * @param   _amountIn  Amount of tokens deposited
+     * @param   _token  Address of the token to be deposited
+     * @param   _tokenEthValue  Amount of value priced in ETH
      * @param   _minOut  Minimum number of xezETH to accept to ensure slippage minimums
      * @param   _deadline  latest timestamp to accept this transaction
      * @return  uint256  Amount of xezETH minted to calling account
      */
     function _deposit(
-        uint256 _amountIn,
+        IERC20 _token,
+        uint256 _tokenEthValue,
         uint256 _minOut,
         uint256 _deadline
     ) internal returns (uint256) {
-        // calculate bridgeFee for deposit amount
-        uint256 bridgeFee = getBridgeFeeShare(_amountIn);
-        // subtract from _amountIn and add to bridgeFeeCollected
-        _amountIn -= bridgeFee;
-        bridgeFeeCollected += bridgeFee;
-
-        // Trade deposit tokens for nextWETH
-        uint256 amountOut = _trade(_amountIn, _deadline);
-        if (amountOut == 0) {
-            revert InvalidZeroOutput();
+        // Verify the token is supported
+        if (!depositTokenSupported[_token]) {
+            revert InvalidTokenReceived();
         }
 
+        // Discount the value based on the time it takes to be sent across the bridge
+        uint256 timeBasedDiscount = _getTokenTimeBasedDiscount(_token, _tokenEthValue);
+        _tokenEthValue -= timeBasedDiscount;
+
         // Fetch price and timestamp of ezETH from the configured price feed
-        (uint256 _lastPrice, uint256 _lastPriceTimestamp) = getMintRate();
+        (uint256 lastPrice, uint256 lastPriceTimestamp) = getMintRate();
 
         // Verify the price is not stale
-        if (block.timestamp > _lastPriceTimestamp + 1 days) {
+        if (block.timestamp > lastPriceTimestamp + 1 days) {
             revert OraclePriceExpired();
         }
 
         // Calculate the amount of xezETH to mint - assumes 18 decimals for price and token
-        uint256 xezETHAmount = (1e18 * amountOut) / _lastPrice;
+        uint256 xezETHAmount = (1e18 * _tokenEthValue) / lastPrice;
 
         // Check that the user will get the minimum amount of xezETH
         if (xezETHAmount < _minOut) {
@@ -266,8 +286,25 @@ contract xRenzoDeposit is
         IXERC20(address(xezETH)).mint(msg.sender, xezETHAmount);
 
         // Emit the event and return amount minted
-        emit Deposit(msg.sender, _amountIn, xezETHAmount);
+        emit Deposit(msg.sender, _tokenEthValue, xezETHAmount);
         return xezETHAmount;
+    }
+
+    /**
+     * @notice  Gets the ETH value of the deposit token
+     * @dev     Assumes oracle price is in ETH and is 18 decimals
+     * @return  uint256  ETH Value
+     */
+    function _getTokenEthValue(IERC20 _token, uint256 _amount) internal view returns (uint256) {
+        AggregatorV3Interface oracle = tokenOracleLookup[_token];
+        if (address(oracle) == address(0x0)) revert OracleNotFound();
+
+        (, int256 price, , uint256 timestamp, ) = oracle.latestRoundData();
+        if (block.timestamp > timestamp + 1 days) revert OraclePriceExpired();
+        if (price <= 0) revert InvalidOraclePrice();
+
+        // Calculate the value of the token in ETH - assumes both token and price are 18 decimals
+        return (_amount * uint256(price)) / 1e18;
     }
 
     /**
@@ -284,20 +321,28 @@ contract xRenzoDeposit is
     }
 
     /**
+     * @notice  Gets the time based discount for the token amount
+     * @dev     If the token takes 7 days to get across the bridge, the value will not be earning yield for 7 days so it must be discounted.
+     *          The discount should include any staking and restaking yields that the token would have earned.
+     * @param   _token  address of the token
+     * @param   _tokenEthValue  ETH value of the token
+     * @return  uint256  amount to be discounted by
+     */
+    function _getTokenTimeBasedDiscount(
+        IERC20 _token,
+        uint256 _tokenEthValue
+    ) internal view returns (uint256) {
+        // Calculate the time based discount
+        return (tokenTimeDiscountBasisPoints[_token] * _tokenEthValue) / FEE_BASIS;
+    }
+
+    /**
      * @notice Fetch the price of ezETH from configured price feeds
      */
     function getMintRate() public view returns (uint256, uint256) {
         // revert if PriceFeedNotAvailable
-        if (receiver == address(0) && address(oracle) == address(0)) revert PriceFeedNotAvailable();
-        if (address(oracle) != address(0)) {
-            (uint256 oraclePrice, uint256 oracleTimestamp) = oracle.getMintRate();
-            return
-                oracleTimestamp > lastPriceTimestamp
-                    ? (oraclePrice, oracleTimestamp)
-                    : (lastPrice, lastPriceTimestamp);
-        } else {
-            return (lastPrice, lastPriceTimestamp);
-        }
+        if (receiver == address(0)) revert PriceFeedNotAvailable();
+        return (lastPrice, lastPriceTimestamp);
     }
 
     /**
@@ -368,103 +413,71 @@ contract xRenzoDeposit is
     }
 
     /**
-     * @notice  Trades deposit asset for nextWETH
-     * @dev     Note that min out is not enforced here since the asset will be priced to ezETH by the calling function
-     * @param   _amountIn  Amount of deposit tokens to trade for collateral asset
-     * @return  _deadline Deadline for the trade to prevent stale requests
-     */
-    function _trade(uint256 _amountIn, uint256 _deadline) internal returns (uint256) {
-        // Approve the deposit asset to the connext contract
-        depositToken.safeIncreaseAllowance(address(connext), _amountIn);
-
-        // We will accept any amount of tokens out here... The caller of this function should verify the amount meets minimums
-        uint256 minOut = 0;
-
-        // Swap the tokens
-        uint256 amountNextWETH = connext.swapExact(
-            swapKey,
-            _amountIn,
-            address(depositToken),
-            address(collateralToken),
-            minOut,
-            _deadline
-        );
-
-        // Subtract the bridge router fee
-        if (bridgeRouterFeeBps > 0) {
-            uint256 fee = (amountNextWETH * bridgeRouterFeeBps) / 10_000;
-            amountNextWETH -= fee;
-        }
-
-        return amountNextWETH;
-    }
-
-    /**
-     * @notice This function transfer the bridge fee to sweeper address
-     */
-    function _recoverBridgeFee() internal {
-        uint256 feeCollected = bridgeFeeCollected;
-        bridgeFeeCollected = 0;
-        // transfer collected fee to bridgeSweeper
-        uint256 chainId;
-        assembly {
-            chainId := chainid()
-        }
-        // If executing chain is BSC or XLayer then transfer WETH to bridgeSweeper
-        if (chainId == 56 || chainId == 196) {
-            IERC20(address(depositToken)).safeTransfer(msg.sender, feeCollected);
-        } else {
-            // transfer collected fee in ETH to bridgeSweeper
-            uint256 balanceBefore = address(this).balance;
-            IWeth(address(depositToken)).withdraw(feeCollected);
-            feeCollected = address(this).balance - balanceBefore;
-            bool success = payable(msg.sender).send(feeCollected);
-            if (!success) revert TransferFailed();
-        }
-        emit SweeperBridgeFeeCollected(msg.sender, feeCollected);
-    }
-
-    /**
-     * @notice  This function will take the balance of nextWETH in the contract and bridge it down to the L1
+     * @notice  This function will take the balance of an asset in the contract and bridge it down to the L1
      * @dev     The L1 contract will unwrap, deposit in Renzo, and lock up the ezETH in the lockbox on L1
-     *          This function should only be callable by permissioned accounts
      *          The caller will estimate and pay the gas for the bridge call
+     * @param   _token  Address of token to be swept to L1
      */
-    function sweep() public payable nonReentrant {
-        // Verify the caller is whitelisted
-        if (!allowedBridgeSweepers[msg.sender]) {
-            revert UnauthorizedBridgeSweeper();
+    function sweep(IERC20 _token) public payable nonReentrant {
+        // Verify it is a supported token
+        if (!depositTokenSupported[_token]) {
+            revert InvalidTokenReceived();
         }
 
-        // Get the balance of nextWETH in the contract
-        uint256 balance = collateralToken.balanceOf(address(this));
+        // Get the balance of the asset in the contract
+        uint256 balance = _token.balanceOf(address(this));
 
-        // If there is no balance, return
-        if (balance == 0) {
-            revert InvalidZeroOutput();
+        // If there is not enough to bridge balance, revert
+        if (balance <= MIN_DUST_BRIDGE) {
+            revert InsufficientOutputAmount();
         }
 
-        // Approve it to the connext contract
-        collateralToken.safeIncreaseAllowance(address(connext), balance);
+        // Approve the token and route it to mainnet
+        _token.safeIncreaseAllowance(address(valueTransferBridges[_token]), balance);
 
-        // Need to send some calldata so it triggers xReceive on the target
-        bytes memory bridgeCallData = abi.encode(balance);
-
-        connext.xcall{ value: msg.value }(
-            bridgeDestinationDomain,
-            bridgeTargetAddress,
-            address(collateralToken),
-            msg.sender,
-            balance,
-            0, // Asset is already nextWETH, so no slippage will be incurred
-            bridgeCallData
+        // Include the msg.value to pay any bridge fees
+        valueTransferBridges[_token].transferRemote{ value: msg.value }(
+            mainnetDestinationDomain,
+            mainnetRecipient,
+            address(_token),
+            balance
         );
-
-        // send collected bridge fee to sweeper
-        _recoverBridgeFee();
 
         // Emit the event
-        emit BridgeSwept(bridgeDestinationDomain, bridgeTargetAddress, msg.sender, balance);
+        emit BridgeSwept(address(_token), balance, msg.sender);
+    }
+
+    /**
+     * @notice  This function will take the balance ETH in the contract and bridge it down to the L1
+     * @dev     The L1 contract will deposit in Renzo, and lock up the ezETH in the lockbox on L1
+     *          The caller will estimate and pay the gas for the bridge call
+     */
+    function sweepETH() public payable nonReentrant {
+        // Verify Native ETH is supported
+        if (!depositTokenSupported[ETH_NATIVE_TOKEN_ADDRESS]) {
+            revert InvalidTokenReceived();
+        }
+
+        // Get the balance of ETH in the contract minus the gas value
+        uint256 valueToSend = address(this).balance - msg.value;
+
+        // If there is not enough to bridge balance, revert
+        if (valueToSend <= MIN_DUST_BRIDGE) {
+            revert InsufficientOutputAmount();
+        }
+
+        // Send the full ETH available but specify the amount that should be bridged
+        valueTransferBridges[ETH_NATIVE_TOKEN_ADDRESS].transferRemote{
+            value: address(this).balance
+        }(
+            mainnetDestinationDomain,
+            mainnetRecipient,
+            address(ETH_NATIVE_TOKEN_ADDRESS),
+            valueToSend
+        );
+
+        // Emit the event
+        emit BridgeSwept(address(ETH_NATIVE_TOKEN_ADDRESS), valueToSend, msg.sender);
     }
 
     /**
@@ -481,15 +494,62 @@ contract xRenzoDeposit is
     }
 
     /**
-     * @notice  Allows the owner to set addresses that are allowed to call the bridge() function
-     * @dev     .
-     * @param   _sweeper  Address of the proposed sweeping account
-     * @param   _allowed  bool to allow or disallow the address
+     * @notice   Allows the owner to set the support for a deposit asset
+     * @dev     Checks the token for 0 anb verifies the oracle is set properly if adding support
+     * @param   _token  EC20 token
+     * @param   _supported  Indicates if the token is supported for a deposit asset
+     * @param   _tokenOracle  If supported, the oracle for the token to get pricing in ETH
      */
-    function setAllowedBridgeSweeper(address _sweeper, bool _allowed) external onlyOwner {
-        allowedBridgeSweepers[_sweeper] = _allowed;
+    function setSupportedToken(
+        IERC20 _token,
+        bool _supported,
+        AggregatorV3Interface _tokenOracle,
+        IValueTransferBridge _valueTransferBridge
+    ) external onlyOwner {
+        // Verify the token is not 0
+        if (address(_token) == address(0)) revert InvalidZeroInput();
 
-        emit BridgeSweeperAddressUpdated(_sweeper, _allowed);
+        // Verify the token is 18 decimals if it is not ETH
+        if (
+            address(_token) != address(ETH_NATIVE_TOKEN_ADDRESS) &&
+            IERC20MetadataUpgradeable(address(_token)).decimals() != 18
+        ) revert InvalidTokenDecimals(18, IERC20MetadataUpgradeable(address(_token)).decimals());
+
+        // Update support value
+        depositTokenSupported[_token] = _supported;
+
+        // If support is being added, verify the oracle
+        if (_supported) {
+            if (address(_tokenOracle) == address(0)) revert InvalidZeroInput();
+
+            // Verify that the pricing of the oracle is to 18 decimals - pricing calculations will be off otherwise
+            if (_tokenOracle.decimals() != 18)
+                revert InvalidTokenDecimals(18, _tokenOracle.decimals());
+
+            // Set the oracle lookup
+            tokenOracleLookup[_token] = _tokenOracle;
+
+            if (address(_valueTransferBridge) == address(0)) {
+                revert InvalidZeroInput();
+            }
+
+            // Set the value transfer bridge
+            valueTransferBridges[_token] = _valueTransferBridge;
+        } else {
+            // If not supported, set the oracle to 0
+            tokenOracleLookup[_token] = AggregatorV3Interface(address(0));
+
+            // If not supported, set the value transfer bridge to 0
+            valueTransferBridges[_token] = IValueTransferBridge(address(0));
+        }
+
+        // Emit the event
+        emit TokenSupportUpdated(
+            address(_token),
+            _supported,
+            address(_tokenOracle),
+            address(_valueTransferBridge)
+        );
     }
 
     /**
@@ -516,15 +576,6 @@ contract xRenzoDeposit is
     /******************************
      *  Admin/OnlyOwner functions
      *****************************/
-    /**
-     * @notice This function sets/updates the Oracle price Feed middleware for ezETH
-     * @dev This should be permissioned call (onlyOwner), can be set to address(0) for not configured
-     * @param _oracle Oracle address
-     */
-    function setOraclePriceFeed(IRenzoOracleL2 _oracle) external onlyOwner {
-        emit OraclePriceFeedUpdated(address(_oracle), address(oracle));
-        oracle = _oracle;
-    }
 
     /**
      * @notice This function sets/updates the Receiver Price Feed Middleware for ezETH
@@ -556,6 +607,29 @@ contract xRenzoDeposit is
         if (_newBatchSize < 32 ether) revert InvalidSweepBatchSize(_newBatchSize);
         emit SweepBatchSizeUpdated(sweepBatchSize, _newBatchSize);
         sweepBatchSize = _newBatchSize;
+    }
+
+    /**
+     * @notice  Updates the time based discount bps per token
+     * @dev     This should be a permissioned call (onlyOwner)
+     * @param   _token  address of the token
+     * @param   _discount  time based discount in basis points where 100 basis points = 1%
+     */
+    function updateTokenTimeDiscount(IERC20 _token, uint256 _discount) external onlyOwner {
+        // Verify the token is supported
+        if (!depositTokenSupported[_token]) {
+            revert InvalidTokenReceived();
+        }
+
+        // The discount should not be greater than 1%
+        if (_discount > 100) revert OverMaxBasisPoints();
+
+        // Get the discount currently set
+        uint256 oldDiscount = tokenTimeDiscountBasisPoints[_token];
+
+        // Update the discount and emit event
+        tokenTimeDiscountBasisPoints[_token] = _discount;
+        emit TokenTimeDiscountUpdated(address(_token), oldDiscount, _discount);
     }
 
     /**

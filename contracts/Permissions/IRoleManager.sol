@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 interface IRoleManager {
     /// @dev Determines if the specified address has permissions to manage RoleManager
@@ -53,6 +53,22 @@ interface IRoleManager {
     /// @dev Determine if the specified address has permission to track emergency pending queued withdrawals
     /// @param potentialAddress Address to check
     function isEmergencyWithdrawTrackingAdmin(
+        address potentialAddress
+    ) external view returns (bool);
+
+    /// @dev Determine if the specified address has permission to process EigenLayer rewards
+    /// @param potentialAddress Address to check
+    function isEigenLayerRewardsAdmin(address potentialAddress) external view returns (bool);
+
+    /// @dev Determin if the specified address has permission to track missed Checkpoints Exit Balance
+    /// @param potentialAddress Address to check
+    function isEmergencyCheckpointTrackingAdmin(
+        address potentialAddress
+    ) external view returns (bool);
+
+    /// @dev Determin if the specified address has permission to track AVS ETH slashing amount
+    /// @param potentialAddress Address to check
+    function isEmergencyTrackAVSEthSlashingAdmin(
         address potentialAddress
     ) external view returns (bool);
 }

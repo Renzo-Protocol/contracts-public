@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 import "./EigenLayer/interfaces/IStrategy.sol";
 import "./EigenLayer/interfaces/IDelegationManager.sol";

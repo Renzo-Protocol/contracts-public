@@ -18,6 +18,8 @@ pragma solidity ^0.8.0;
  * against this attack out of the box.
  */
 library Merkle {
+    error InvalidProofLength();
+
     /**
      * @dev Returns the rebuilt hash obtained by traversing a Merkle tree up
      * from `leaf` using `proof`. A `proof` is valid if and only if the rebuilt
@@ -40,6 +42,7 @@ library Merkle {
      * from `leaf` using `proof`. A `proof` is valid if and only if the rebuilt
      * hash matches the root of the tree. The tree is built assuming `leaf` is
      * the 0 indexed `index`'th leaf from the bottom left of the tree.
+     * @dev If the proof length is 0 then the leaf hash is returned.
      *
      * _Available since v4.4._
      *
@@ -50,10 +53,7 @@ library Merkle {
         bytes32 leaf,
         uint256 index
     ) internal pure returns (bytes32) {
-        require(
-            proof.length != 0 && proof.length % 32 == 0,
-            "Merkle.processInclusionProofKeccak: proof length should be a non-zero multiple of 32"
-        );
+        require(proof.length % 32 == 0, InvalidProofLength());
         bytes32 computedHash = leaf;
         for (uint256 i = 32; i <= proof.length; i += 32) {
             if (index % 2 == 0) {
@@ -109,10 +109,7 @@ library Merkle {
         bytes32 leaf,
         uint256 index
     ) internal view returns (bytes32) {
-        require(
-            proof.length != 0 && proof.length % 32 == 0,
-            "Merkle.processInclusionProofSha256: proof length should be a non-zero multiple of 32"
-        );
+        require(proof.length != 0 && proof.length % 32 == 0, InvalidProofLength());
         bytes32[1] memory computedHash = [leaf];
         for (uint256 i = 32; i <= proof.length; i += 32) {
             if (index % 2 == 0) {
@@ -141,10 +138,10 @@ library Merkle {
     }
 
     /**
-     @notice this function returns the merkle root of a tree created from a set of leaves using sha256 as its hash function
-     @param leaves the leaves of the merkle tree
-     @return The computed Merkle root of the tree.
-     @dev A pre-condition to this function is that leaves.length is a power of two.  If not, the function will merkleize the inputs incorrectly.
+     * @notice this function returns the merkle root of a tree created from a set of leaves using sha256 as its hash function
+     *  @param leaves the leaves of the merkle tree
+     *  @return The computed Merkle root of the tree.
+     *  @dev A pre-condition to this function is that leaves.length is a power of two.  If not, the function will merkleize the inputs incorrectly.
      */
     function merkleizeSha256(bytes32[] memory leaves) internal pure returns (bytes32) {
         //there are half as many nodes in the layer above the leaves

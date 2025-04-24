@@ -19,10 +19,17 @@ import "../interfaces/IPauserRegistry.sol";
  * @dev We note as well that we have chosen to identify flags by their *bit index* as opposed to their numerical value, so, e.g. defining `DEPOSITS_PAUSED = 3`
  * indicates specifically that if the *third bit* of `_paused` is flipped -- i.e. it is a '1' -- then deposits should be paused
  */
-
 interface IPausable {
-    /// @notice Emitted when the `pauserRegistry` is set to `newPauserRegistry`.
-    event PauserRegistrySet(IPauserRegistry pauserRegistry, IPauserRegistry newPauserRegistry);
+    /// @dev Thrown when caller is not pauser.
+    error OnlyPauser();
+    /// @dev Thrown when caller is not unpauser.
+    error OnlyUnpauser();
+    /// @dev Thrown when currently paused.
+    error CurrentlyPaused();
+    /// @dev Thrown when invalid `newPausedStatus` is provided.
+    error InvalidNewPausedStatus();
+    /// @dev Thrown when a null address input is provided.
+    error InputAddressZero();
 
     /// @notice Emitted when the pause is triggered by `account`, and changed to `newPausedStatus`.
     event Paused(address indexed account, uint256 newPausedStatus);
@@ -59,7 +66,4 @@ interface IPausable {
 
     /// @notice Returns 'true' if the `indexed`th bit of `_paused` is 1, and 'false' otherwise
     function paused(uint8 index) external view returns (bool);
-
-    /// @notice Allows the unpauser to set a new pauser registry
-    function setPauserRegistry(IPauserRegistry newPauserRegistry) external;
 }

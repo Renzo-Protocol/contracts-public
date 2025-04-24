@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 import "./RenzoOracleL2Storage.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";

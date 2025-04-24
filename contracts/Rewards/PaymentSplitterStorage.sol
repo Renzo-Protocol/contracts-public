@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 abstract contract PaymentSplitterStorageV1 {
     /// @dev the address to send funds once recipients are paid

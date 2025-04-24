@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IRenzoOracle {
+    function stETH() external view returns (IERC20);
+
     function lookupTokenValue(IERC20 _token, uint256 _balance) external view returns (uint256);
     function lookupTokenAmountFromValue(
         IERC20 _token,
@@ -23,4 +25,14 @@ interface IRenzoOracle {
         uint256 _existingEzETHSupply,
         uint256 _currentValueInProtocol
     ) external pure returns (uint256);
+
+    function lookupTokenSecondaryValue(
+        IERC20 _token,
+        uint256 _balance
+    ) external view returns (uint256);
+
+    function lookupTokenSecondaryAmountFromValue(
+        IERC20 _token,
+        uint256 _value
+    ) external view returns (uint256);
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../Permissions/IRoleManager.sol";
@@ -14,7 +14,7 @@ contract RenzoOracle is
     IRenzoOracle,
     Initializable,
     ReentrancyGuardUpgradeable,
-    RenzoOracleStorageV1
+    RenzoOracleStorageV2
 {
     /// @dev Error for invalid 0x0 address
     string constant INVALID_0_INPUT = "Invalid 0 input";
@@ -25,6 +25,10 @@ contract RenzoOracle is
     /// @dev The maxmimum staleness allowed for a price feed from chainlink
     uint256 constant MAX_TIME_WINDOW = 86400 + 60; // 24 hours + 60 seconds
 
+    /// @dev Tracks stETH token contract
+    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+    IERC20 public immutable stETH;
+
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyOracleAdmin() {
         if (!roleManager.isOracleAdmin(msg.sender)) revert NotOracleAdmin();
@@ -34,9 +38,14 @@ contract RenzoOracle is
     /// @dev Event emitted when a token's oracle address is updated
     event OracleAddressUpdated(IERC20 token, AggregatorV3Interface oracleAddress);
 
+    /// @dev Event emitted when stETH secondary oracle is updated
+    event StETHSecondaryOracleUpdated(AggregatorV3Interface oracleAddress);
+
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
+    constructor(IERC20 _stETH) {
+        if (address(_stETH) == address(0)) revert InvalidZeroInput();
+        stETH = _stETH;
         _disableInitializers();
     }
 
@@ -65,6 +74,67 @@ contract RenzoOracle is
         emit OracleAddressUpdated(_token, _oracleAddress);
     }
 
+    /**
+     * @notice  Sets stETH exchange rate oracle
+     * @dev     permissioned call (only OracleAdmin)
+     * @param   _oracleAddress  address or new oracle
+     */
+    function setStETHSecondaryOracle(
+        AggregatorV3Interface _oracleAddress
+    ) external nonReentrant onlyOracleAdmin {
+        // Verify that the pricing of the oracle is 18 decimals - pricing calculations will be off otherwise
+        if (_oracleAddress.decimals() != 18)
+            revert InvalidTokenDecimals(18, _oracleAddress.decimals());
+
+        stETHSecondaryOracle = _oracleAddress;
+        emit StETHSecondaryOracleUpdated(_oracleAddress);
+    }
+
+    /**
+     * @notice  calculate stETH value in terms of ETH through market rate~
+     * @param   _balance  amount of stETH to convert in ETH
+     * @return  uint256  stETH value in ETH through secondary exchange rate (DEX price)
+     */
+    function lookupTokenSecondaryValue(
+        IERC20 _token,
+        uint256 _balance
+    ) public view returns (uint256) {
+        if (_token == stETH) {
+            // if stETH secondary Oracle is not set then return 1:1
+            if (address(stETHSecondaryOracle) == address(0)) return _balance;
+
+            // check the last price
+            (, int256 price, , uint256 timestamp, ) = stETHSecondaryOracle.latestRoundData();
+            if (timestamp < block.timestamp - MAX_TIME_WINDOW) revert OraclePriceExpired();
+            if (price <= 0) revert InvalidOraclePrice();
+
+            // Price is times 10**18 ensure value amount is scaled
+            return (uint256(price) * _balance) / SCALE_FACTOR;
+        } else {
+            return lookupTokenValue(_token, _balance);
+        }
+    }
+
+    function lookupTokenSecondaryAmountFromValue(
+        IERC20 _token,
+        uint256 _value
+    ) public view returns (uint256) {
+        if (_token == stETH) {
+            // if stETH secondary Oracle is not set then return 1:1
+            if (address(stETHSecondaryOracle) == address(0)) return _value;
+
+            // check the last price
+            (, int256 price, , uint256 timestamp, ) = stETHSecondaryOracle.latestRoundData();
+            if (timestamp < block.timestamp - MAX_TIME_WINDOW) revert OraclePriceExpired();
+            if (price <= 0) revert InvalidOraclePrice();
+
+            // Price is times 10**18 ensure token amount is scaled
+            return (_value * SCALE_FACTOR) / uint256(price);
+        } else {
+            return lookupTokenAmountFromValue(_token, _value);
+        }
+    }
+
     /// @dev Given a single token and balance, return value of the asset in underlying currency
     /// The value returned will be denominated in the decimal precision of the lookup oracle
     /// (e.g. a value of 100 would return as 100 * 10^18)
@@ -85,7 +155,7 @@ contract RenzoOracle is
     function lookupTokenAmountFromValue(
         IERC20 _token,
         uint256 _value
-    ) external view returns (uint256) {
+    ) public view returns (uint256) {
         AggregatorV3Interface oracle = tokenOracleLookup[_token];
         if (address(oracle) == address(0x0)) revert OracleNotFound();
 

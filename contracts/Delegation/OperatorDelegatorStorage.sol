@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 import "../Permissions/IRoleManager.sol";
 import "../EigenLayer/interfaces/IStrategy.sol";
 import "../EigenLayer/interfaces/IStrategyManager.sol";
 import "../EigenLayer/interfaces/IDelegationManager.sol";
 import "../EigenLayer/interfaces/IEigenPod.sol";
+import "../EigenLayer/interfaces/IRewardsCoordinator.sol";
 import "./IOperatorDelegator.sol";
 import "../IRestakeManager.sol";
+import "./utils/WETHUnwrapper.sol";
 
 /// @title OperatorDelegatorStorage
 /// @dev This contract will hold all local variables for the  Contract
@@ -67,7 +69,54 @@ abstract contract OperatorDelegatorStorageV4 is OperatorDelegatorStorageV3 {
     mapping(bytes32 => uint256) public validatorStakedButNotVerifiedEth;
 }
 
+abstract contract OperatorDelegatorStorageV5 is OperatorDelegatorStorageV4 {
+    /// @dev EigenLayer Rewards Coordinator
+    IRewardsCoordinator public rewardsCoordinator;
+
+    /// @dev EigenLayer Rewards Destination
+    address public rewardsDestination;
+}
+
+abstract contract OperatorDelegatorStorageV6 is OperatorDelegatorStorageV5 {
+    /// @dev Tracks total amount of BeaconChain Eth exited
+    uint256 public totalBeaconChainExitBalance;
+
+    /// @dev Tracks currently verifying checkpoint timestamp
+    uint64 public currentCheckpointTimestamp;
+}
+
+abstract contract OperatorDelegatorStorageV7 is OperatorDelegatorStorageV6 {
+    /// @notice Deprecated, not using anymore
+    /// @dev WETHunwrapper to unwrape WETH received by EigenLayerRewards
+    WETHUnwrapper public wethUnwrapper;
+}
+
+abstract contract OperatorDelegatorStorageV8 is OperatorDelegatorStorageV7 {
+    /// @dev Tracks all the recorded checkpoints
+    mapping(uint64 => bool) public recordedCheckpoints;
+}
+
+abstract contract OperatorDelegatorStorageV9 is OperatorDelegatorStorageV8 {
+    /// @dev Tracks the last finalized checkpoint timestamp
+    uint64 public lastCheckpointTimestamp;
+}
+
+abstract contract OperatorDelegatorStorageV10 is OperatorDelegatorStorageV9 {
+    address public gasRefundAddress;
+}
+
+abstract contract OperatorDelegatorStorageV11 is OperatorDelegatorStorageV10 {
+    /// @dev Tracks slashed delta for queuedWithdrawal
+    mapping(bytes32 => mapping(address => QueuedWithdrawal)) public queuedWithdrawalTokenInfo;
+
+    /// @dev Tracks total slashed delta for collateral asset
+    mapping(address => uint256) public totalTokenQueuedSharesSlashedDelta;
+
+    /// @dev Track the beaconChainETH AVS slashing amount
+    uint256 public beaconChainEthAvsSlashingAmount;
+}
+
 /// On the next version of the protocol, if new variables are added, put them in the below
 /// contract and use this as the inheritance chain.
-// abstract contract OperatorDelegatorStorageV4 is OperatorDelegatorStorageV3 {
+// abstract contract OperatorDelegatorStorageV8 is OperatorDelegatorStorageV7 {
 // }

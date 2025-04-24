@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 import "../Permissions/IRoleManager.sol";
 import "../Oracle/IRenzoOracle.sol";
@@ -7,8 +7,7 @@ import "../IRestakeManager.sol";
 import "../token/IEzEthToken.sol";
 
 abstract contract WithdrawQueueStorageV1 {
-    address public constant IS_NATIVE =
-        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address public constant IS_NATIVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     struct TokenWithdrawBuffer {
         address asset;
@@ -53,7 +52,7 @@ abstract contract WithdrawQueueStorageV1 {
 
 abstract contract WithdrawQueueStorageV2 is WithdrawQueueStorageV1 {
     /// @dev Struct for the withdrawQueue
-    struct EthWithdrawQueue {
+    struct WithdrawQueue {
         uint256 queuedWithdrawToFill;
         uint256 queuedWithdrawFilled;
     }
@@ -69,5 +68,26 @@ abstract contract WithdrawQueueStorageV2 is WithdrawQueueStorageV1 {
 
     /// @dev mapping for asset withdrawQueue
     /// @dev WithdrawQueue is a sliding window
-    EthWithdrawQueue public ethWithdrawQueue;
+    WithdrawQueue public ethWithdrawQueue;
+}
+
+abstract contract WithdrawQueueStorageV3 is WithdrawQueueStorageV2 {
+    /// @dev Deprecated - not using anymore as any asset can be added to WithdrawQueue
+    /// @dev Tracks if Withdraw Queue enable for collateral asset
+    mapping(address => bool) public erc20WithdrawQueueEnabled;
+
+    /// @dev WithdrawQueue for ERC20 assets
+    mapping(address => WithdrawQueue) public erc20WithdrawQueue;
+}
+
+abstract contract WithdrawQueueStorageV4 is WithdrawQueueStorageV3 {
+    mapping(address => bool) public whitelisted;
+}
+
+abstract contract WithdrawQueueStorageV5 is WithdrawQueueStorageV4 {
+    /// @dev mapping to track stETH depositors and their ezETH balance
+    mapping(address => uint256) public stETHDepositors;
+
+    /// @dev mapping to track stETH depositors and their withdrawal amount of ezETH at market rate
+    mapping(bytes32 => uint256) public stETHDepositorsWithdrawalAmount;
 }

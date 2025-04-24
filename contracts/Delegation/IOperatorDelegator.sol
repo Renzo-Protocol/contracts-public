@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../EigenLayer/interfaces/IStrategyManager.sol";
 import "../EigenLayer/interfaces/IDelegationManager.sol";
 import "../EigenLayer/interfaces/IEigenPod.sol";
 
 interface IOperatorDelegator {
+    struct QueuedWithdrawal {
+        uint256 sharesSlashedDelta;
+        uint256 initialWithdrawableShares;
+    }
+
     function getTokenBalanceFromStrategy(IERC20 token) external view returns (uint256);
 
     function deposit(IERC20 _token, uint256 _tokenAmount) external returns (uint256 shares);

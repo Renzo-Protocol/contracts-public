@@ -2,6 +2,45 @@
 pragma solidity >=0.5.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../libraries/SlashingLib.sol";
+import "./ISemVerMixin.sol";
+
+interface IStrategyErrors {
+    /// @dev Thrown when called by an account that is not strategy manager.
+    error OnlyStrategyManager();
+    /// @dev Thrown when new shares value is zero.
+    error NewSharesZero();
+    /// @dev Thrown when total shares exceeds max.
+    error TotalSharesExceedsMax();
+    /// @dev Thrown when amount shares is greater than total shares.
+    error WithdrawalAmountExceedsTotalDeposits();
+    /// @dev Thrown when attempting an action with a token that is not accepted.
+    error OnlyUnderlyingToken();
+
+    /// StrategyBaseWithTVLLimits
+
+    /// @dev Thrown when `maxPerDeposit` exceeds max.
+    error MaxPerDepositExceedsMax();
+    /// @dev Thrown when balance exceeds max total deposits.
+    error BalanceExceedsMaxTotalDeposits();
+}
+
+interface IStrategyEvents {
+    /**
+     * @notice Used to emit an event for the exchange rate between 1 share and underlying token in a strategy contract
+     * @param rate is the exchange rate in wad 18 decimals
+     * @dev Tokens that do not have 18 decimals must have offchain services scale the exchange rate by the proper magnitude
+     */
+    event ExchangeRateEmitted(uint256 rate);
+
+    /**
+     * Used to emit the underlying token and its decimals on strategy creation
+     * @notice token
+     * @param token is the ERC20 token of the strategy
+     * @param decimals are the decimals of the ERC20 token in the strategy
+     */
+    event StrategyTokenSet(IERC20 token, uint8 decimals);
+}
 
 /**
  * @title Minimal interface for an `Strategy` contract.
@@ -9,7 +48,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @notice Terms of Service: https://docs.eigenlayer.xyz/overview/terms-of-service
  * @notice Custom `Strategy` implementations may expand extensively on this interface.
  */
-interface IStrategy {
+interface IStrategy is IStrategyErrors, IStrategyEvents, ISemVerMixin {
     /**
      * @notice Used to deposit tokens into this Strategy
      * @param token is the ERC20 token being deposited

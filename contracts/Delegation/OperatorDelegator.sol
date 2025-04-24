@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity 0.8.27;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../Permissions/IRoleManager.sol";
 import "./OperatorDelegatorStorage.sol";
 import "../EigenLayer/interfaces/IDelegationManager.sol";
-import "../EigenLayer/interfaces/ISignatureUtils.sol";
+import "../EigenLayer/interfaces/ISignatureUtilsMixin.sol";
 import "../EigenLayer/libraries/BeaconChainProofs.sol";
+import "../EigenLayer/interfaces/IRewardsCoordinator.sol";
+import "../Bridge/Connext/core/IWeth.sol";
 import "../Errors/Errors.sol";
+
+import "./utils/OperatorDelegatorLib.sol";
 
 /// @dev This contract will be responsible for interacting with Eigenlayer
 /// Each of these contracts deployed will be delegated to one specific operator
@@ -18,21 +22,25 @@ import "../Errors/Errors.sol";
 contract OperatorDelegator is
     Initializable,
     ReentrancyGuardUpgradeable,
-    OperatorDelegatorStorageV4
+    OperatorDelegatorStorageV11
 {
     using SafeERC20 for IERC20;
     using BeaconChainProofs for *;
 
     uint256 internal constant GWEI_TO_WEI = 1e9;
 
-    address public constant IS_NATIVE =
-        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address public constant IS_NATIVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     /// @dev Max stakedButNotVerifiedEth amount cap per validator
     uint256 public constant MAX_STAKE_BUT_NOT_VERIFIED_AMOUNT = 32 ether;
 
     /// @dev Nominal base gas spent value by admin
     uint256 internal constant NOMINAL_BASE_GAS_SPENT = 50_000;
+
+    /// @dev min redeposit amount in WEI
+    uint256 public constant MIN_REDEPOSIT_AMOUNT = 10_000;
 
     event TokenStrategyUpdated(IERC20 token, IStrategy strategy);
     event DelegationAddressUpdated(address delegateAddress);
@@ -49,42 +57,56 @@ contract OperatorDelegator is
         uint256[] shares
     );
 
-    event WithdrawCompleted(
-        bytes32 withdrawalRoot,
-        IStrategy[] strategies,
-        uint256[] shares
-    );
+    event WithdrawCompleted(bytes32 withdrawalRoot, IStrategy[] strategies, uint256[] shares);
 
     event GasSpent(address admin, uint256 gasSpent);
     event GasRefunded(address admin, uint256 gasRefunded);
-    event BaseGasAmountSpentUpdated(
-        uint256 oldBaseGasAmountSpent,
-        uint256 newBaseGasAmountSpent
-    );
+    event BaseGasAmountSpentUpdated(uint256 oldBaseGasAmountSpent, uint256 newBaseGasAmountSpent);
+    event RewardsCoordinatorUpdated(address oldRewardsCoordinator, address newRewardsCoordinator);
+    event RewardsDestinationUpdated(address oldRewardsDestination, address newRewardsDestination);
+    event WETHUnwrapperUpdated(address oldUnwrapper, address newUnwrapper);
+    event GasRefundAddressUpdated(address oldGasRefundAddress, address newGasRefundAddress);
 
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyOperatorDelegatorAdmin() {
-        if (!roleManager.isOperatorDelegatorAdmin(msg.sender))
-            revert NotOperatorDelegatorAdmin();
+        _onlyOperatorDelegatorAdmin();
         _;
     }
 
     /// @dev Allows only the RestakeManager address to call functions
     modifier onlyRestakeManager() {
-        if (msg.sender != address(restakeManager)) revert NotRestakeManager();
+        _onlyRestakeManager();
         _;
     }
 
     /// @dev Allows only a whitelisted address to configure the contract
     modifier onlyNativeEthRestakeAdmin() {
-        if (!roleManager.isNativeEthRestakeAdmin(msg.sender))
-            revert NotNativeEthRestakeAdmin();
+        _onlyNativeEthRestakeAdmin();
         _;
     }
 
+    /// @dev Allows only EmergencyWithdrawTrackingAdmin to call functions
     modifier onlyEmergencyWithdrawTrackingAdmin() {
         if (!roleManager.isEmergencyWithdrawTrackingAdmin(msg.sender))
             revert NotEmergencyWithdrawTrackingAdmin();
+        _;
+    }
+
+    /// @dev Allows only Rewards admin to process Rewards
+    modifier onlyEigenLayerRewardsAdmin() {
+        if (!roleManager.isEigenLayerRewardsAdmin(msg.sender)) revert NotEigenLayerRewardsAdmin();
+        _;
+    }
+
+    modifier onlyEmergencyCheckpointTrackingAdmin() {
+        if (!roleManager.isEmergencyCheckpointTrackingAdmin(msg.sender))
+            revert NotEmergencyCheckpointTrackingAdmin();
+        _;
+    }
+
+    modifier onlyEmergencyTrackAVSEthSlashingAdmin() {
+        if (!roleManager.isEmergencyTrackAVSEthSlashingAdmin(msg.sender))
+            revert NotEmergencyTrackAVSEthSlashingAdmin();
         _;
     }
 
@@ -102,14 +124,11 @@ contract OperatorDelegator is
         IDelegationManager _delegationManager,
         IEigenPodManager _eigenPodManager
     ) external initializer {
-        if (address(_roleManager) == address(0x0)) revert InvalidZeroInput();
-        if (address(_strategyManager) == address(0x0))
-            revert InvalidZeroInput();
-        if (address(_restakeManager) == address(0x0)) revert InvalidZeroInput();
-        if (address(_delegationManager) == address(0x0))
-            revert InvalidZeroInput();
-        if (address(_eigenPodManager) == address(0x0))
-            revert InvalidZeroInput();
+        _checkZeroAddress(address(_roleManager));
+        _checkZeroAddress(address(_strategyManager));
+        _checkZeroAddress(address(_restakeManager));
+        _checkZeroAddress(address(_delegationManager));
+        _checkZeroAddress(address(_eigenPodManager));
 
         __ReentrancyGuard_init();
 
@@ -123,14 +142,37 @@ contract OperatorDelegator is
         eigenPod = IEigenPod(eigenPodManager.createPod());
     }
 
-    /// @dev Migrates the M1 pods to M2 pods by calling activateRestaking on eigenPod
-    /// @dev Should be a permissioned call by onlyNativeEthRestakeAdmin
-    function activateRestaking()
-        external
-        nonReentrant
-        onlyNativeEthRestakeAdmin
-    {
-        eigenPod.activateRestaking();
+    /**
+     * @notice  reinitializing the OperatorDelegator to track pre Slashing Upgrade queued shares, reinitialize with version 3
+     * @dev     permissioned call (onlyOperatorDelegatorAdmin), can only reinitialize once
+     * @param   _ethQueuedSharesDelta the shares delta for completed ETH withdrawals
+     * @param   preSlashingQueuedShares the shares for pre slashing queued withdrawals
+     * @param   preSlashingQueuedSharesToken the token address for pre slashing queued withdrawals
+     * @param   preSlashingWithdrawalRoots the withdrawal roots for pre slashing queued withdrawals
+     */
+    function reinitialize(
+        uint256 _ethQueuedSharesDelta,
+        uint256[] calldata preSlashingQueuedShares,
+        address[] calldata preSlashingQueuedSharesToken,
+        bytes32[] calldata preSlashingWithdrawalRoots
+    ) external onlyOperatorDelegatorAdmin reinitializer(3) {
+        // reset queued shares delta for completed withdrawals
+        queuedShares[IS_NATIVE] -= _ethQueuedSharesDelta;
+
+        // set initial withdrawable shares for pending queued shares
+        if (
+            preSlashingQueuedShares.length != preSlashingQueuedSharesToken.length ||
+            preSlashingQueuedShares.length != preSlashingWithdrawalRoots.length
+        ) revert MismatchedArrayLengths();
+
+        for (uint256 i = 0; i < preSlashingQueuedShares.length; ) {
+            queuedWithdrawalTokenInfo[preSlashingWithdrawalRoots[i]][
+                preSlashingQueuedSharesToken[i]
+            ].initialWithdrawableShares = preSlashingQueuedShares[i];
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /// @dev Sets the strategy for a given token - setting strategy to 0x0 removes the ability to deposit and withdraw token
@@ -138,7 +180,7 @@ contract OperatorDelegator is
         IERC20 _token,
         IStrategy _strategy
     ) external nonReentrant onlyOperatorDelegatorAdmin {
-        if (address(_token) == address(0x0)) revert InvalidZeroInput();
+        _checkZeroAddress(address(_token));
 
         // check revert if strategy underlying does not match
         if (
@@ -160,31 +202,53 @@ contract OperatorDelegator is
     /// @dev Sets the address to delegate tokens to in EigenLayer -- THIS CAN ONLY BE SET ONCE
     function setDelegateAddress(
         address _delegateAddress,
-        ISignatureUtils.SignatureWithExpiry memory approverSignatureAndExpiry,
+        ISignatureUtilsMixinTypes.SignatureWithExpiry memory approverSignatureAndExpiry,
         bytes32 approverSalt
     ) external nonReentrant onlyOperatorDelegatorAdmin {
-        if (address(_delegateAddress) == address(0x0))
-            revert InvalidZeroInput();
-        if (address(delegateAddress) != address(0x0))
+        _checkZeroAddress(address(_delegateAddress));
+        if (delegationManager.delegatedTo(address(this)) != address(0))
             revert DelegateAddressAlreadySet();
 
         delegateAddress = _delegateAddress;
 
-        delegationManager.delegateTo(
-            delegateAddress,
-            approverSignatureAndExpiry,
-            approverSalt
-        );
+        delegationManager.delegateTo(delegateAddress, approverSignatureAndExpiry, approverSalt);
 
         emit DelegationAddressUpdated(_delegateAddress);
     }
 
+    /// @dev updates the baseGasAmountSpent
     function setBaseGasAmountSpent(
         uint256 _baseGasAmountSpent
     ) external nonReentrant onlyOperatorDelegatorAdmin {
         if (_baseGasAmountSpent == 0) revert InvalidZeroInput();
         emit BaseGasAmountSpentUpdated(baseGasAmountSpent, _baseGasAmountSpent);
         baseGasAmountSpent = _baseGasAmountSpent;
+    }
+
+    /// @dev sets the EigenLayer RewardsCoordinator address
+    function setRewardsCoordinator(
+        IRewardsCoordinator _rewardsCoordinator
+    ) external nonReentrant onlyOperatorDelegatorAdmin {
+        _checkZeroAddress(address(_rewardsCoordinator));
+        emit RewardsCoordinatorUpdated(address(rewardsCoordinator), address(_rewardsCoordinator));
+        rewardsCoordinator = _rewardsCoordinator;
+    }
+
+    /// @dev sets the Rewards Destination address
+    function setRewardsDestination(
+        address _rewardsDestination
+    ) external nonReentrant onlyOperatorDelegatorAdmin {
+        _checkZeroAddress(_rewardsDestination);
+        emit RewardsDestinationUpdated(rewardsDestination, _rewardsDestination);
+        rewardsDestination = _rewardsDestination;
+    }
+
+    function setGasRefundAddress(
+        address _gasRefundAddress
+    ) external nonReentrant onlyOperatorDelegatorAdmin {
+        _checkZeroAddress(_gasRefundAddress);
+        emit GasRefundAddressUpdated(gasRefundAddress, _gasRefundAddress);
+        gasRefundAddress = _gasRefundAddress;
     }
 
     /// @dev Deposit tokens into the EigenLayer.  This call assumes any balance of tokens in this contract will be delegated
@@ -194,10 +258,8 @@ contract OperatorDelegator is
         IERC20 token,
         uint256 tokenAmount
     ) external nonReentrant onlyRestakeManager returns (uint256 shares) {
-        if (
-            address(tokenStrategyMapping[token]) == address(0x0) ||
-            tokenAmount == 0
-        ) revert InvalidZeroInput();
+        _checkZeroAddress(address(tokenStrategyMapping[token]));
+        if (tokenAmount == 0) revert InvalidZeroInput();
 
         // Move the tokens into this contract
         token.safeTransferFrom(msg.sender, address(this), tokenAmount);
@@ -211,36 +273,22 @@ contract OperatorDelegator is
      * @param   _tokenAmount  amount of given token to deposit
      * @return  shares  shares for deposited amount
      */
-    function _deposit(
-        IERC20 _token,
-        uint256 _tokenAmount
-    ) internal returns (uint256 shares) {
+    function _deposit(IERC20 _token, uint256 _tokenAmount) internal returns (uint256 shares) {
         // Approve the strategy manager to spend the tokens
         _token.safeIncreaseAllowance(address(strategyManager), _tokenAmount);
 
         // Deposit the tokens via the strategy manager
         return
-            strategyManager.depositIntoStrategy(
-                tokenStrategyMapping[_token],
-                _token,
-                _tokenAmount
-            );
+            strategyManager.depositIntoStrategy(tokenStrategyMapping[_token], _token, _tokenAmount);
     }
 
     /// @dev Gets the index of the specific strategy in EigenLayer in the staker's strategy list
-    function getStrategyIndex(
-        IStrategy _strategy
-    ) public view returns (uint256) {
+    function getStrategyIndex(IStrategy _strategy) public view returns (uint256) {
         // Get the length of the strategy list for this contract
-        uint256 strategyLength = strategyManager.stakerStrategyListLength(
-            address(this)
-        );
+        uint256 strategyLength = strategyManager.stakerStrategyListLength(address(this));
 
         for (uint256 i = 0; i < strategyLength; i++) {
-            if (
-                strategyManager.stakerStrategyList(address(this), i) ==
-                _strategy
-            ) {
+            if (strategyManager.stakerStrategyList(address(this), i) == _strategy) {
                 return i;
             }
         }
@@ -261,38 +309,14 @@ contract OperatorDelegator is
         IDelegationManager.Withdrawal[] calldata withdrawals,
         IERC20[] calldata tokens
     ) external nonReentrant onlyEmergencyWithdrawTrackingAdmin {
-        // verify array lengths
-        if (tokens.length != withdrawals.length)
-            revert MismatchedArrayLengths();
-        for (uint256 i = 0; i < withdrawals.length; ) {
-            if (address(tokens[i]) == address(0)) revert InvalidZeroInput();
-            // calculate withdrawalRoot
-            bytes32 withdrawalRoot = delegationManager.calculateWithdrawalRoot(
-                withdrawals[i]
-            );
-
-            // verify withdrawal is not tracked
-            if (queuedWithdrawal[withdrawalRoot])
-                revert WithdrawalAlreadyTracked();
-
-            // verify withdrawal is pending and protocol not double counting
-            if (!delegationManager.pendingWithdrawals(withdrawalRoot))
-                revert WithdrawalAlreadyCompleted();
-
-            // verify LST token is not provided if beaconChainETHStrategy in Withdraw Request
-            if (
-                address(tokens[i]) != IS_NATIVE &&
-                withdrawals[i].strategies[0] ==
-                delegationManager.beaconChainETHStrategy()
-            ) revert IncorrectStrategy();
-
-            // track queued shares for the token
-            queuedShares[address(tokens[i])] += withdrawals[i].shares[0];
-
-            unchecked {
-                ++i;
-            }
-        }
+        OperatorDelegatorLib.trackQueuedWithdrawals(
+            withdrawals,
+            tokens,
+            delegationManager,
+            queuedWithdrawal,
+            queuedShares,
+            queuedWithdrawalTokenInfo
+        );
     }
 
     /**
@@ -300,88 +324,57 @@ contract OperatorDelegator is
      * @dev     permissioned call (onlyNativeEthRestakeAdmin)
      * @param   tokens  list of tokens to withdraw from. For ETH -> 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
      * @param   tokenAmounts  list of token amounts i'th index token in tokens
-     * @return  bytes32  withdrawal root
+     * @return  withdrawalRoots bytes32[]  withdrawal root for each queued withdrawal
      */
     function queueWithdrawals(
         IERC20[] calldata tokens,
         uint256[] calldata tokenAmounts
-    ) external nonReentrant onlyNativeEthRestakeAdmin returns (bytes32) {
+    ) external nonReentrant onlyNativeEthRestakeAdmin returns (bytes32[] memory withdrawalRoots) {
         // record gas spent
         uint256 gasBefore = gasleft();
-        if (tokens.length != tokenAmounts.length)
-            revert MismatchedArrayLengths();
-        IDelegationManager.QueuedWithdrawalParams[]
-            memory queuedWithdrawalParams = new IDelegationManager.QueuedWithdrawalParams[](
-                1
+
+        // check if tokens and tokenAmounts length are same
+        if (tokens.length != tokenAmounts.length) revert MismatchedArrayLengths();
+
+        uint96 nonce;
+
+        IDelegationManager.QueuedWithdrawalParams[] memory queuedWithdrawalParam;
+        withdrawalRoots = new bytes32[](tokens.length);
+
+        for (uint256 i = 0; i < tokens.length; ) {
+            (withdrawalRoots[i], nonce, queuedWithdrawalParam) = OperatorDelegatorLib
+                .queueWithdrawal(
+                    tokens[i],
+                    tokenAmounts[i],
+                    delegationManager,
+                    eigenPodManager,
+                    tokenStrategyMapping,
+                    queuedShares,
+                    queuedWithdrawal,
+                    queuedWithdrawalTokenInfo
+                );
+
+            // Emit the withdrawal started event
+            emit WithdrawStarted(
+                withdrawalRoots[i],
+                address(this),
+                delegateAddress,
+                address(this),
+                nonce,
+                block.number,
+                queuedWithdrawalParam[0].strategies,
+                queuedWithdrawalParam[0].depositShares
             );
 
-        // set strategies legth for 0th index only
-        queuedWithdrawalParams[0].strategies = new IStrategy[](tokens.length);
-        queuedWithdrawalParams[0].shares = new uint256[](tokens.length);
-
-        // Save the nonce before starting the withdrawal
-        uint96 nonce = uint96(
-            delegationManager.cumulativeWithdrawalsQueued(address(this))
-        );
-
-        for (uint256 i; i < tokens.length; ) {
-            if (address(tokens[i]) == IS_NATIVE) {
-                // set beaconChainEthStrategy for ETH
-                queuedWithdrawalParams[0].strategies[i] = eigenPodManager
-                    .beaconChainETHStrategy();
-
-                // set shares for ETH
-                queuedWithdrawalParams[0].shares[i] = tokenAmounts[i];
-            } else {
-                if (address(tokenStrategyMapping[tokens[i]]) == address(0))
-                    revert InvalidZeroInput();
-
-                // set the strategy of the token
-                queuedWithdrawalParams[0].strategies[i] = tokenStrategyMapping[
-                    tokens[i]
-                ];
-
-                // set the equivalent shares for tokenAmount
-                queuedWithdrawalParams[0].shares[i] = tokenStrategyMapping[
-                    tokens[i]
-                ].underlyingToSharesView(tokenAmounts[i]);
-            }
-
-            // set withdrawer as this contract address
-            queuedWithdrawalParams[0].withdrawer = address(this);
-
-            // track shares of tokens withdraw for TVL
-            queuedShares[address(tokens[i])] += queuedWithdrawalParams[0]
-                .shares[i];
             unchecked {
                 ++i;
             }
         }
 
-        // queue withdrawal in EigenLayer
-        bytes32 withdrawalRoot = delegationManager.queueWithdrawals(
-            queuedWithdrawalParams
-        )[0];
-
-        // track protocol queued withdrawals
-        queuedWithdrawal[withdrawalRoot] = true;
-
-        // Emit the withdrawal started event
-        emit WithdrawStarted(
-            withdrawalRoot,
-            address(this),
-            delegateAddress,
-            address(this),
-            nonce,
-            block.number,
-            queuedWithdrawalParams[0].strategies,
-            queuedWithdrawalParams[0].shares
-        );
-
         // update the gas spent for RestakeAdmin
         _recordGas(gasBefore, NOMINAL_BASE_GAS_SPENT);
 
-        return withdrawalRoot;
+        return withdrawalRoots;
     }
 
     /**
@@ -389,115 +382,104 @@ contract OperatorDelegator is
      * @dev     permissioned call (onlyNativeEthRestakeAdmin)
      * @param   withdrawal  Withdrawal struct
      * @param   tokens  list of tokens to withdraw
-     * @param   middlewareTimesIndex  is the index in the operator that the staker who triggered the withdrawal was delegated to's middleware times array
      */
     function completeQueuedWithdrawal(
         IDelegationManager.Withdrawal calldata withdrawal,
-        IERC20[] calldata tokens,
-        uint256 middlewareTimesIndex
+        IERC20[] calldata tokens
     ) external nonReentrant onlyNativeEthRestakeAdmin {
         uint256 gasBefore = gasleft();
-        if (tokens.length != withdrawal.strategies.length)
-            revert MismatchedArrayLengths();
+        if (tokens.length != withdrawal.strategies.length) revert MismatchedArrayLengths();
 
+        // Note: Using try catch to handle the slashing upgrade of EL.
         // complete the queued withdrawal from EigenLayer with receiveAsToken set to true
-        delegationManager.completeQueuedWithdrawal(
-            withdrawal,
-            tokens,
-            middlewareTimesIndex,
-            true
-        );
+        OperatorDelegatorLib.completeQueuedWithdrawal(withdrawal, tokens, delegationManager);
 
-        IWithdrawQueue withdrawQueue = restakeManager
-            .depositQueue()
-            .withdrawQueue();
-        for (uint256 i; i < tokens.length; ) {
-            if (address(tokens[i]) == address(0)) revert InvalidZeroInput();
-            if (
-                address(tokens[i]) != IS_NATIVE &&
-                withdrawal.strategies[i] ==
-                delegationManager.beaconChainETHStrategy()
-            ) revert IncorrectStrategy();
-            // deduct queued shares for tracking TVL
-            queuedShares[address(tokens[i])] -= withdrawal.shares[i];
+        _reduceQueuedShares(withdrawal, tokens);
 
-            // check if token is not Native ETH
-            if (address(tokens[i]) != IS_NATIVE) {
-                // Check the withdraw buffer and fill if below buffer target
-                uint256 bufferToFill = withdrawQueue.getWithdrawDeficit(
-                    address(tokens[i])
-                );
-
-                // get balance of this contract
-                uint256 balanceOfToken = tokens[i].balanceOf(address(this));
-                if (bufferToFill > 0) {
-                    bufferToFill = (balanceOfToken <= bufferToFill)
-                        ? balanceOfToken
-                        : bufferToFill;
-
-                    // update amount to send to the operator Delegator
-                    balanceOfToken -= bufferToFill;
-
-                    // safe Approve for depositQueue
-                    tokens[i].safeIncreaseAllowance(
-                        address(restakeManager.depositQueue()),
-                        bufferToFill
-                    );
-
-                    // fill Withdraw Buffer via depositQueue
-                    restakeManager.depositQueue().fillERC20withdrawBuffer(
-                        address(tokens[i]),
-                        bufferToFill
-                    );
-                }
-
-                // Deposit remaining tokens back to eigenLayer
-                if (balanceOfToken > 0) {
-                    _deposit(tokens[i], balanceOfToken);
-                }
-            }
-            unchecked {
-                ++i;
-            }
-        }
+        _fillBufferAndReDeposit();
 
         // emits the Withdraw Completed event with withdrawalRoot
         emit WithdrawCompleted(
             delegationManager.calculateWithdrawalRoot(withdrawal),
             withdrawal.strategies,
-            withdrawal.shares
+            withdrawal.scaledShares
         );
         // record current spent gas
         _recordGas(gasBefore, NOMINAL_BASE_GAS_SPENT);
     }
 
+    function completeQueuedWithdrawals(
+        IDelegationManager.Withdrawal[] calldata withdrawals,
+        IERC20[][] calldata tokens,
+        bool[] calldata receiveAsTokens
+    ) external nonReentrant onlyNativeEthRestakeAdmin {
+        uint256 gasBefore = gasleft();
+        if (withdrawals.length != tokens.length || withdrawals.length != receiveAsTokens.length)
+            revert MismatchedArrayLengths();
+
+        // Note: Using try catch to handle the slashing upgrade of EL.
+        // complete queued withdrawals
+        OperatorDelegatorLib.completeQueuedWithdrawals(
+            withdrawals,
+            tokens,
+            receiveAsTokens,
+            delegationManager
+        );
+
+        // track queued shares and fill buffer
+        for (uint256 i = 0; i < withdrawals.length; ) {
+            if (tokens[i].length != withdrawals[i].strategies.length)
+                revert MismatchedArrayLengths();
+
+            // revert if receiveAsToken is false
+            if (!receiveAsTokens[i]) revert OnlyReceiveAsTokenAllowed();
+
+            // reduce queued shares for every withdrawal
+            _reduceQueuedShares(withdrawals[i], tokens[i]);
+
+            // emits the Withdraw Completed event with withdrawalRoot
+            emit WithdrawCompleted(
+                delegationManager.calculateWithdrawalRoot(withdrawals[i]),
+                withdrawals[i].strategies,
+                withdrawals[i].scaledShares
+            );
+            unchecked {
+                ++i;
+            }
+        }
+
+        // fill buffer and redeposit remaining
+        _fillBufferAndReDeposit();
+
+        // record current spent gas
+        _recordGas(gasBefore, NOMINAL_BASE_GAS_SPENT);
+    }
+
     /// @dev Gets the underlying token amount from the amount of shares + queued withdrawal shares
-    function getTokenBalanceFromStrategy(
-        IERC20 token
-    ) external view returns (uint256) {
+    function getTokenBalanceFromStrategy(IERC20 token) external view returns (uint256) {
         return
-            queuedShares[address(token)] == 0
-                ? tokenStrategyMapping[token].userUnderlyingView(address(this))
-                : tokenStrategyMapping[token].userUnderlyingView(
-                    address(this)
-                ) +
-                    tokenStrategyMapping[token].sharesToUnderlyingView(
-                        queuedShares[address(token)]
-                    );
+            OperatorDelegatorLib.getTokenBalanceFromStrategy(
+                queuedShares[address(token)],
+                _getQueuedSharesWithSlashing(address(token)),
+                delegationManager,
+                tokenStrategyMapping[token]
+            );
     }
 
     /// @dev Gets the amount of ETH staked in the EigenLayer
     function getStakedETHBalance() external view returns (uint256) {
-        // accounts for current podOwner shares + stakedButNotVerified ETH + queued withdraw shares
-        int256 podOwnerShares = eigenPodManager.podOwnerShares(address(this));
+        // check if completed checkpoint in not synced with OperatorDelegator
+        _checkCheckpointSync();
+
         return
-            podOwnerShares < 0
-                ? queuedShares[IS_NATIVE] +
-                    stakedButNotVerifiedEth -
-                    uint256(-podOwnerShares)
-                : queuedShares[IS_NATIVE] +
-                    stakedButNotVerifiedEth +
-                    uint256(podOwnerShares);
+            OperatorDelegatorLib.getStakedETHBalance(
+                queuedShares[IS_NATIVE],
+                _getQueuedSharesWithSlashing(IS_NATIVE),
+                stakedButNotVerifiedEth,
+                _getPartialWithdrawalsPodDelta(),
+                eigenPodManager,
+                delegationManager
+            );
     }
 
     /// @dev Stake ETH in the EigenLayer
@@ -508,17 +490,14 @@ contract OperatorDelegator is
         bytes32 depositDataRoot
     ) external payable onlyRestakeManager {
         // if validator withdraw credentials is verified
-        if (
-            eigenPod.validatorStatus(pubkey) ==
-            IEigenPod.VALIDATOR_STATUS.INACTIVE
-        ) {
+        if (eigenPod.validatorStatus(pubkey) == IEigenPodTypes.VALIDATOR_STATUS.INACTIVE) {
             bytes32 validatorPubKeyHash = _calculateValidatorPubkeyHash(pubkey);
             uint256 validatorCurrentStakedButNotVerifiedEth = validatorStakedButNotVerifiedEth[
-                    validatorPubKeyHash
-                ];
+                validatorPubKeyHash
+            ];
             uint256 _stakedButNotVerifiedEth = msg.value;
             uint256 _validatorStakedButNotVerifiedEth = validatorCurrentStakedButNotVerifiedEth +
-                    msg.value;
+                msg.value;
             // check if new value addition is greater than MAX_STAKE_BUT_NOT_VERIFIED_AMOUNT
             if (
                 validatorCurrentStakedButNotVerifiedEth + msg.value >
@@ -540,11 +519,7 @@ contract OperatorDelegator is
         }
 
         // Call the stake function in the EigenPodManager
-        eigenPodManager.stake{value: msg.value}(
-            pubkey,
-            signature,
-            depositDataRoot
-        );
+        eigenPodManager.stake{ value: msg.value }(pubkey, signature, depositDataRoot);
     }
 
     /// @dev Verifies the withdrawal credentials for a withdrawal
@@ -559,84 +534,170 @@ contract OperatorDelegator is
     ) external onlyNativeEthRestakeAdmin {
         uint256 gasBefore = gasleft();
 
-        eigenPod.verifyWithdrawalCredentials(
+        uint256 totalStakedAndVerifiedETH = OperatorDelegatorLib.verifyWithdrawalCredentials(
             oracleTimestamp,
             stateRootProof,
             validatorIndices,
             withdrawalCredentialProofs,
-            validatorFields
+            validatorFields,
+            eigenPod,
+            validatorStakedButNotVerifiedEth
         );
 
-        // Decrement the staked but not verified ETH
-        for (uint256 i = 0; i < validatorFields.length; ) {
-            bytes32 validatorPubkeyHash = validatorFields[i].getPubkeyHash();
-            // decrement total stakedButNotVerifiedEth by validatorStakedButNotVerifiedEth
-            if (validatorStakedButNotVerifiedEth[validatorPubkeyHash] != 0) {
-                stakedButNotVerifiedEth -= validatorStakedButNotVerifiedEth[
-                    validatorPubkeyHash
-                ];
-            } else {
-                // fallback to decrement total stakedButNotVerifiedEth by MAX_STAKE_BUT_NOT_VERIFIED_AMOUNT
-                stakedButNotVerifiedEth -= MAX_STAKE_BUT_NOT_VERIFIED_AMOUNT;
-            }
+        // decrement stakedButNotVerifiedEth by totalStakedAndVerifiedETH
+        stakedButNotVerifiedEth -= totalStakedAndVerifiedETH;
 
-            // set validatorStakedButNotVerifiedEth value to 0
-            validatorStakedButNotVerifiedEth[validatorPubkeyHash] = 0;
+        // update the gas spent for RestakeAdmin
+        _recordGas(gasBefore, baseGasAmountSpent);
+    }
+
+    /**
+     * @notice  Tracks the Exit Balance for checkpoints started outside OperatorDelegator. i.e. Through verifyStaleBalance.
+     * @dev     Permissioned call by only
+     * @param   missedCheckpoints  .
+     */
+    function emergencyTrackMissedCheckpoint(
+        uint64[] memory missedCheckpoints
+    ) external onlyEmergencyCheckpointTrackingAdmin {
+        (uint256 _totalBeaconChainExitBalance, uint64 latestCheckpoint) = OperatorDelegatorLib
+            .trackMissedCheckpoint(missedCheckpoints, recordedCheckpoints, eigenPod);
+
+        // record total beacon chain exit balance
+        totalBeaconChainExitBalance += _totalBeaconChainExitBalance;
+
+        // record the latestCheckpoint as lastCheckpointTimestamp
+        lastCheckpointTimestamp = latestCheckpoint;
+    }
+
+    /**
+     * @notice  Tracks Slashing delta of queuedWithdrawal
+     * @param   withdrawalRoots  EigenLayer withdrawal roots to track slashing delta for
+     */
+    function emergencyTrackSlashedQueuedWithdrawalDelta(
+        bytes32[] calldata withdrawalRoots
+    ) external {
+        OperatorDelegatorLib.trackSlashedQueuedWithdrawalDelta(
+            withdrawalRoots,
+            queuedWithdrawal,
+            queuedWithdrawalTokenInfo,
+            totalTokenQueuedSharesSlashedDelta,
+            delegationManager
+        );
+    }
+
+    /**
+     * @notice  Starts a checkpoint on the eigenPod
+     * @dev     permissioned call by NativeEthRestakeAdmin
+     */
+    function startCheckpoint() external onlyNativeEthRestakeAdmin {
+        uint256 gasBefore = gasleft();
+        // check if any active checkpoint
+        if (currentCheckpointTimestamp != 0) revert CheckpointAlreadyActive();
+
+        // check for checkpoint sync
+        _checkCheckpointSync();
+
+        // start checkpoint
+        eigenPod.startCheckpoint(true);
+        // track the current checkpoint timestamp
+        currentCheckpointTimestamp = eigenPod.currentCheckpointTimestamp();
+        // record the checkpoint
+        recordedCheckpoints[currentCheckpointTimestamp] = true;
+
+        // update the gas spent for RestakeAdmin
+        _recordGas(gasBefore, NOMINAL_BASE_GAS_SPENT);
+    }
+
+    /**
+     * @notice  Verify Checkpoint Proofs on EigenPod for currently active checkpoint and tracks exited validator balance
+     * @dev     permissioned call by NativeEthRestakeAdmin
+     * @param   balanceContainerProof  proves the beacon's current balance container root against a checkpoint's `beaconBlockRoot`
+     * @param   proofs  Proofs for one or more validator current balances against the `balanceContainerRoot`
+     */
+    function verifyCheckpointProofs(
+        BeaconChainProofs.BalanceContainerProof calldata balanceContainerProof,
+        BeaconChainProofs.BalanceProof[] calldata proofs
+    ) external onlyNativeEthRestakeAdmin {
+        uint256 gasBefore = gasleft();
+
+        // Note: try catch is used to prevent revert condition as checkpoints can be verified externally
+        try eigenPod.verifyCheckpointProofs(balanceContainerProof, proofs) {} catch {}
+
+        // if checkpoint completed. i.e eigenPod.lastCheckpointTimestamp() == currentCheckpointTimestamp
+        if (eigenPod.lastCheckpointTimestamp() == currentCheckpointTimestamp) {
+            // add the last completed checkpoint Exited balance in WEI
+            uint256 totalBeaconChainExitBalanceGwei = eigenPod.checkpointBalanceExitedGwei(
+                currentCheckpointTimestamp
+            );
+            totalBeaconChainExitBalance += (totalBeaconChainExitBalanceGwei * GWEI_TO_WEI);
+
+            // track completed checkpoint as last completed checkpoint
+            lastCheckpointTimestamp = currentCheckpointTimestamp;
+
+            // reset current checkpoint
+            delete currentCheckpointTimestamp;
+        }
+
+        // update the gas spent for RestakeAdmin
+        _recordGas(gasBefore, baseGasAmountSpent);
+    }
+
+    /**
+     * @notice  Claim ERC20 rewards from EigenLayer
+     * @dev     Permissioned call only by EigenLayerRewardsAdmin
+     * @param   claim  RewardsMerkleClaim object to process claim
+     */
+    function claimRewards(
+        IRewardsCoordinatorTypes.RewardsMerkleClaim calldata claim
+    ) external onlyEigenLayerRewardsAdmin {
+        // check revert if reward destination not set
+        if (rewardsDestination == address(0)) revert RewardsDestinationNotConfigured();
+
+        uint256 gasBefore = gasleft();
+        rewardsCoordinator.processClaim(claim, address(this));
+
+        // process claimed rewards. i.e. If supported collateral asset then restake otherwise forward to rewards Destination
+        for (uint256 i = 0; i < claim.tokenLeaves.length; ) {
+            if (address(claim.tokenLeaves[i].token) == WETH) {
+                uint256 amount = IERC20(WETH).balanceOf(address(this));
+                // withdraw WETH to ETH
+                IWeth(WETH).withdraw(amount);
+                // process ETH
+                _processETH();
+                // (bool success, ) = address(this).call{ value: amount }("");
+                // if (!success) revert TransferFailed();
+            } else if (address(tokenStrategyMapping[claim.tokenLeaves[i].token]) != address(0)) {
+                // if token supported as collateral then restake
+                _deposit(
+                    claim.tokenLeaves[i].token,
+                    claim.tokenLeaves[i].token.balanceOf(address(this))
+                );
+            } else {
+                // if token not supported then send to rewardsDestination
+                claim.tokenLeaves[i].token.safeTransfer(
+                    rewardsDestination,
+                    claim.tokenLeaves[i].token.balanceOf(address(this))
+                );
+            }
 
             unchecked {
                 ++i;
             }
         }
-        // update the gas spent for RestakeAdmin
+
+        // update the gas spent for RewardsAdmin
         _recordGas(gasBefore, baseGasAmountSpent);
     }
 
     /**
-     * @notice  Verify many Withdrawals and process them in the EigenPod
-     * @dev     For each withdrawal (partial or full), verify it in the EigenPod
-     *          Only callable by admin.
-     * @param   oracleTimestamp  .
-     * @param   stateRootProof  .
-     * @param   withdrawalProofs  .
-     * @param   validatorFieldsProofs  .
-     * @param   validatorFields  .
-     * @param   withdrawalFields  .
+     * @notice  Emergency function to track AVS slashing amount for beacon chain ETH strategy
+     * @dev     permissioned call (onlyEmergencyTrackAVSEthSlashingAdmin)
+     * @param   slashedAmount  amount of ETH slashed through AVS slashing
      */
-    function verifyAndProcessWithdrawals(
-        uint64 oracleTimestamp,
-        BeaconChainProofs.StateRootProof calldata stateRootProof,
-        BeaconChainProofs.WithdrawalProof[] calldata withdrawalProofs,
-        bytes[] calldata validatorFieldsProofs,
-        bytes32[][] calldata validatorFields,
-        bytes32[][] calldata withdrawalFields
-    ) external onlyNativeEthRestakeAdmin {
-        uint256 gasBefore = gasleft();
-        eigenPod.verifyAndProcessWithdrawals(
-            oracleTimestamp,
-            stateRootProof,
-            withdrawalProofs,
-            validatorFieldsProofs,
-            validatorFields,
-            withdrawalFields
-        );
-        // update the gas spent for RestakeAdmin
-        _recordGas(gasBefore, baseGasAmountSpent);
-    }
-
-    /**
-     * @notice  Pull out any ETH in the EigenPod that is not from the beacon chain
-     * @dev     Only callable by admin
-     * @param   recipient  Where to send the ETH
-     * @param   amountToWithdraw  Amount to pull out
-     */
-    function withdrawNonBeaconChainETHBalanceWei(
-        address recipient,
-        uint256 amountToWithdraw
-    ) external onlyNativeEthRestakeAdmin {
-        eigenPod.withdrawNonBeaconChainETHBalanceWei(
-            recipient,
-            amountToWithdraw
-        );
+    function emergencyTrackAVSEthSlashedAmount(
+        uint256 slashedAmount
+    ) external onlyEmergencyTrackAVSEthSlashingAdmin {
+        beaconChainEthAvsSlashingAmount = slashedAmount;
     }
 
     /**
@@ -654,18 +715,19 @@ contract OperatorDelegator is
         eigenPod.recoverTokens(tokenList, amountsToWithdraw, recipient);
     }
 
-    /**
-     * @notice  Starts a delayed withdraw of the ETH from the EigenPodManager
-     * @dev     Before the eigenpod is verified, we can sweep out any accumulated ETH from the Consensus layer validator rewards
-     *         We also want to track the amount in the delayed withdrawal router so we can track the TVL and reward amount accurately
-     */
-    function startDelayedWithdrawUnstakedETH()
-        external
-        onlyNativeEthRestakeAdmin
-    {
-        // Call the start delayed withdraw function in the EigenPodManager
-        // This will queue up a delayed withdrawal that will be sent back to this address after the timeout
-        eigenPod.withdrawBeforeRestaking();
+    function _getPartialWithdrawalsPodDelta() internal view returns (uint256 podDelta) {
+        // amount of ETH in partial withdrawals. i.e. Rewards.
+        // Note: rewards will be part of TVL once claimed and restaked
+        podDelta = ((uint256(eigenPod.withdrawableRestakedExecutionLayerGwei()) * GWEI_TO_WEI) -
+            beaconChainEthAvsSlashingAmount >
+            totalBeaconChainExitBalance)
+            ? ((uint256(eigenPod.withdrawableRestakedExecutionLayerGwei()) * GWEI_TO_WEI) -
+                beaconChainEthAvsSlashingAmount) - totalBeaconChainExitBalance
+            : 0;
+    }
+
+    function _getQueuedSharesWithSlashing(address _underlying) internal view returns (uint256) {
+        return queuedShares[_underlying] - totalTokenQueuedSharesSlashedDelta[_underlying];
     }
 
     /**
@@ -674,8 +736,7 @@ contract OperatorDelegator is
      * @param   initialGas  .
      */
     function _recordGas(uint256 initialGas, uint256 baseGasAmount) internal {
-        uint256 gasSpent = (initialGas - gasleft() + baseGasAmount) *
-            block.basefee;
+        uint256 gasSpent = (initialGas - gasleft() + baseGasAmount) * block.basefee;
         adminGasSpentInWei[msg.sender] += gasSpent;
         emit GasSpent(msg.sender, gasSpent);
     }
@@ -694,18 +755,186 @@ contract OperatorDelegator is
      * @return  uint256  .
      */
     function _refundGas() internal returns (uint256) {
-        uint256 gasRefund = address(this).balance >=
-            adminGasSpentInWei[tx.origin]
+        uint256 gasRefund = address(this).balance >= adminGasSpentInWei[tx.origin]
             ? adminGasSpentInWei[tx.origin]
             : address(this).balance;
-        bool success = payable(tx.origin).send(gasRefund);
+
+        // get the gas refund address if configured
+        address _gasRefundAddress = gasRefundAddress == address(0) ? tx.origin : gasRefundAddress;
+
+        bool success = payable(_gasRefundAddress).send(gasRefund);
         if (!success) revert TransferFailed();
 
         // reset gas spent by admin
         adminGasSpentInWei[tx.origin] -= gasRefund;
 
-        emit GasRefunded(tx.origin, gasRefund);
+        emit GasRefunded(_gasRefundAddress, gasRefund);
         return gasRefund;
+    }
+
+    function _checkZeroAddress(address _potentialAddress) internal pure {
+        if (_potentialAddress == address(0)) revert InvalidZeroInput();
+    }
+
+    /// @dev Allows only a whitelisted address to configure the contract
+    function _onlyOperatorDelegatorAdmin() internal view {
+        if (!roleManager.isOperatorDelegatorAdmin(msg.sender)) revert NotOperatorDelegatorAdmin();
+    }
+
+    /// @dev Allows only a whitelisted address to configure the contract
+    function _onlyNativeEthRestakeAdmin() internal view {
+        if (!roleManager.isNativeEthRestakeAdmin(msg.sender)) revert NotNativeEthRestakeAdmin();
+    }
+
+    /// @dev Allows only the RestakeManager address to call functions
+    function _onlyRestakeManager() internal view {
+        if (msg.sender != address(restakeManager)) revert NotRestakeManager();
+    }
+
+    /**
+     * @notice revert if lastCheckpointTimestamp is not recorded
+     * 1. To prevent deposits when checkpoint was started through verifyStaleBalance
+     * and then completed but not recorded by OperatorDelegator through emergencytrackCheckpoint.
+     * 2. Can also prevent deposits when checkpoint was started through OperatorDelegator
+     * but not completed through OD i.e. not recorded in OperatorDelegator.
+     * 3. Prevents starting new checkpoint through operatorDelegator if lastcheckpoint timestamps are not synced
+     *
+     * @dev Checks if the lastCheckpointTimestamp of OD is synced with EigenPod
+     * reverts if any completed checkpoint is not synced in OD
+     */
+    function _checkCheckpointSync() internal view {
+        uint64 eigenPodLastCheckpointTimestamp = eigenPod.lastCheckpointTimestamp();
+        if (
+            eigenPodLastCheckpointTimestamp != 0 &&
+            lastCheckpointTimestamp != 0 &&
+            eigenPodLastCheckpointTimestamp > lastCheckpointTimestamp
+        ) revert CheckpointNotRecorded();
+    }
+
+    /**
+     * @notice  Reduces queued shares for collateral asset in withdrawal request
+     * @dev     checks for any Invalid collateral asset provided in withdrawal request
+     * @param   withdrawal  Withdrawal request struct on EigenLayer
+     * @param   tokens  list of tokens in withdrawal request
+     */
+    function _reduceQueuedShares(
+        IDelegationManager.Withdrawal calldata withdrawal,
+        IERC20[] memory tokens
+    ) internal {
+        for (uint256 i; i < tokens.length; ) {
+            _checkZeroAddress(address(tokens[i]));
+            if (
+                address(tokens[i]) != IS_NATIVE &&
+                withdrawal.strategies[i] == delegationManager.beaconChainETHStrategy()
+            ) revert IncorrectStrategy();
+
+            // Calculate withdrawal root for the given withdrawal
+            bytes32 withdrawalRoot = delegationManager.calculateWithdrawalRoot(withdrawal);
+
+            // deduct queued shares with the initial withdrawable shares queued for tracking TVL
+            queuedShares[address(tokens[i])] -= queuedWithdrawalTokenInfo[withdrawalRoot][
+                address(tokens[i])
+            ].initialWithdrawableShares;
+            if (
+                queuedWithdrawalTokenInfo[withdrawalRoot][address(tokens[i])].sharesSlashedDelta > 0
+            ) {
+                // reduce total slashed delta with queuedWithdrawalTokenInfo.sharesSharedDelta
+                totalTokenQueuedSharesSlashedDelta[address(tokens[i])] -= queuedWithdrawalTokenInfo[
+                    withdrawalRoot
+                ][address(tokens[i])].sharesSlashedDelta;
+
+                // delete queuedWithdrawalTokenInfo for the withdrawal root
+                delete queuedWithdrawalTokenInfo[withdrawalRoot][address(tokens[i])];
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /**
+     * @notice  Fill withdraw buffer for all ERC20 collateral asset and reDeposit remaining asset
+     */
+    function _fillBufferAndReDeposit() internal {
+        IWithdrawQueue withdrawQueue = restakeManager.depositQueue().withdrawQueue();
+        for (uint256 i = 0; i < restakeManager.getCollateralTokensLength(); ) {
+            IERC20 token = restakeManager.collateralTokens(i);
+            // Check the withdraw buffer and fill if below buffer target
+            uint256 bufferToFill = withdrawQueue.getWithdrawDeficit(address(token));
+
+            // get balance of this contract
+            uint256 balanceOfToken = token.balanceOf(address(this));
+
+            if (bufferToFill > 0 && balanceOfToken > 0) {
+                bufferToFill = (balanceOfToken <= bufferToFill) ? balanceOfToken : bufferToFill;
+
+                // update amount to send to the operator Delegator
+                balanceOfToken -= bufferToFill;
+
+                // safe Approve for depositQueue
+                token.safeIncreaseAllowance(address(restakeManager.depositQueue()), bufferToFill);
+
+                // fill Withdraw Buffer via depositQueue
+                restakeManager.depositQueue().fillERC20withdrawBuffer(address(token), bufferToFill);
+            }
+
+            // Deposit remaining token back to eigenLayer
+            if (balanceOfToken > MIN_REDEPOSIT_AMOUNT) {
+                _deposit(token, balanceOfToken);
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /**
+     * @notice  process ETH received by contract
+     */
+    function _processETH() internal {
+        uint256 remainingAmount = address(this).balance;
+        // check if any pending Exit Balance
+        if (totalBeaconChainExitBalance > 0) {
+            uint256 exitedBalanceToForward = address(this).balance > totalBeaconChainExitBalance
+                ? totalBeaconChainExitBalance
+                : address(this).balance;
+
+            // forward exited balance as fullWithdrawal
+            restakeManager.depositQueue().forwardFullWithdrawalETH{
+                value: exitedBalanceToForward
+            }();
+
+            // reduce totalBeaconChainExitBalance
+            totalBeaconChainExitBalance -= exitedBalanceToForward;
+
+            // update remaining amount
+            remainingAmount -= exitedBalanceToForward;
+
+            // check and return if remaining amount is 0
+            if (remainingAmount == 0) {
+                return;
+            }
+        }
+
+        // considered the remaining amount as protocol rewards
+        uint256 gasRefunded = 0;
+        if (adminGasSpentInWei[tx.origin] > 0) {
+            gasRefunded = _refundGas();
+            // update the remaining amount
+            remainingAmount -= gasRefunded;
+            // If no funds left, return
+            if (remainingAmount == 0) {
+                return;
+            }
+        }
+
+        // Forward remaining balance to the deposit queue
+        address destination = address(restakeManager.depositQueue());
+        (bool success, ) = destination.call{ value: remainingAmount }("");
+        if (!success) revert TransferFailed();
+
+        emit RewardsForwarded(destination, remainingAmount);
     }
 
     /**
@@ -715,30 +944,11 @@ contract OperatorDelegator is
      * @dev If msg.sender is eigenPod then forward ETH to deposit queue without taking cut (i.e. full withdrawal from beacon chain)
      */
     receive() external payable {
-        // check if sender contract is EigenPod. forward full withdrawal eth received
-        if (msg.sender == address(eigenPod)) {
-            restakeManager.depositQueue().forwardFullWithdrawalETH{
-                value: msg.value
-            }();
-        } else {
-            // considered as protocol reward
-            uint256 gasRefunded = 0;
-            uint256 remainingAmount = address(this).balance;
-            if (adminGasSpentInWei[tx.origin] > 0) {
-                gasRefunded = _refundGas();
-                // update the remaining amount
-                remainingAmount -= gasRefunded;
-                // If no funds left, return
-                if (remainingAmount == 0) {
-                    return;
-                }
-            }
-            // Forward remaining balance to the deposit queue
-            address destination = address(restakeManager.depositQueue());
-            (bool success, ) = destination.call{value: remainingAmount}("");
-            if (!success) revert TransferFailed();
-
-            emit RewardsForwarded(destination, remainingAmount);
+        // if ETH coming from WETH then return
+        if (msg.sender == WETH) {
+            return;
         }
+        // process ETH
+        _processETH();
     }
 }

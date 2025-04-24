@@ -12,6 +12,7 @@ library Endian {
     function fromLittleEndianUint64(bytes32 lenum) internal pure returns (uint64 n) {
         // the number needs to be stored in little-endian encoding (ie in bytes 0-8)
         n = uint64(uint256(lenum >> 192));
+        // forgefmt: disable-next-item
         return
             (n >> 56) |
             ((0x00FF000000000000 & n) >> 40) |

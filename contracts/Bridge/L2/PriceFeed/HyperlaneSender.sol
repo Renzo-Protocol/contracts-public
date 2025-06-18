@@ -130,7 +130,7 @@ contract HyperlaneSender is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Pause the contract
+     * @notice UnPause the contract
      * @dev This should be a permissioned call (onlyOwner)
      */
     function unPause() external onlyOwnerOrPauser {
@@ -138,7 +138,7 @@ contract HyperlaneSender is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice UnPause the contract
+     * @notice Pause the contract
      * @dev This should be a permissioned call (onlyOwner)
      */
     function pause() external onlyOwnerOrPauser {

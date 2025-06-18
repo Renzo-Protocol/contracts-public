@@ -4,13 +4,7 @@ pragma solidity 0.8.27;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../IRestakeManager.sol";
 import "../xERC20/interfaces/IXERC20Lockbox.sol";
-import {
-    IRouterClient
-} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import { IRateProvider } from "../../RateProvider/IRateProvider.sol";
-import {
-    LinkTokenInterface
-} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
 import { IRoleManager } from "../../Permissions/IRoleManager.sol";
 
 abstract contract xRenzoBridgeReceiverStorageV1 {

@@ -15,10 +15,6 @@ interface IRestakeManager {
     function depositQueue() external view returns (IDepositQueue);
 
     function calculateTVLs() external view returns (uint256[][] memory, uint256[] memory, uint256);
-    function calculateTVLsStETHMarketRate()
-        external
-        view
-        returns (uint256[][] memory, uint256[] memory, uint256);
 
     function depositETH() external payable;
     function deposit(IERC20 _collateralToken, uint256 _amount) external;

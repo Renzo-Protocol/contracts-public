@@ -11,7 +11,7 @@ import "../Errors/Errors.sol";
 /// Note: This contract is protected via a permissioned account set via the initializer.  Caution should
 /// be used as the owner could renounce the role leaving all future actions disabled.  Additionally,
 /// if a malicious account was able to obtain the role, they could use it to grant permissions to malicious accounts.
-contract RoleManager is IRoleManager, AccessControlUpgradeable, RoleManagerStorageV6 {
+contract RoleManager is IRoleManager, AccessControlUpgradeable, RoleManagerStorageV7 {
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -121,11 +121,17 @@ contract RoleManager is IRoleManager, AccessControlUpgradeable, RoleManagerStora
         return hasRole(EMERGENCY_CHECKPOINT_TRACKING_ADMIN, potentialAddress);
     }
 
-    /// @dev Determin if the specified address has permission to track AVS ETH slashing amount
+    /// @dev Determine if the specified address has permission to track AVS ETH slashing amount
     /// @param potentialAddress Address to check
     function isEmergencyTrackAVSEthSlashingAdmin(
         address potentialAddress
     ) external view returns (bool) {
         return hasRole(EMERGENCY_AVS_ETH_SLASH_TRACKING_ADMIN, potentialAddress);
+    }
+
+    /// @dev Determine if the specified address has permission to rebalance the withdraw queue
+    /// @param potentialAddress Address to check
+    function isWithdrawQueueRebalanceAdmin(address potentialAddress) external view returns (bool) {
+        return hasRole(WITHDRAW_QUEUE_REBALANCE_ADMIN, potentialAddress);
     }
 }

@@ -219,3 +219,9 @@ error NotEmergencyTrackAVSEthSlashingAdmin();
 
 /// @dev Error when below the limit
 error BelowAllowedLimit();
+
+/// @dev Error when withdraw requests are paused.
+error WithdrawRequestPaused();
+
+/// @dev Error when withdraw claims are paused.
+error ClaimPaused();

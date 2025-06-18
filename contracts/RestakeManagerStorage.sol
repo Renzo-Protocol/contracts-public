@@ -11,6 +11,7 @@ import "./Oracle/IRenzoOracle.sol";
 import "./Deposits/IDepositQueue.sol";
 import "./IRestakeManager.sol";
 import "./Withdraw/IWithdrawQueue.sol";
+import "./Oracle/RiskOracle/IRiskOracleMiddleware.sol";
 
 abstract contract RestakeManagerStorageV1 is IRestakeManager {
     /// @dev reference to the RoleManager contract

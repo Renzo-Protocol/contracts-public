@@ -67,3 +67,9 @@ contract RoleManagerStorageV6 is RoleManagerStorageV5 {
     bytes32 public constant EMERGENCY_AVS_ETH_SLASH_TRACKING_ADMIN =
         keccak256("EMERGENCY_AVS_ETH_SLASH_TRACKING_ADMIN");
 }
+
+contract RoleManagerStorageV7 is RoleManagerStorageV6 {
+    /// @dev role for granting capability to rebalance the withdraw queue
+    bytes32 public constant WITHDRAW_QUEUE_REBALANCE_ADMIN =
+        keccak256("WITHDRAW_QUEUE_REBALANCE_ADMIN");
+}

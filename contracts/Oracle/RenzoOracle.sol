@@ -38,9 +38,6 @@ contract RenzoOracle is
     /// @dev Event emitted when a token's oracle address is updated
     event OracleAddressUpdated(IERC20 token, AggregatorV3Interface oracleAddress);
 
-    /// @dev Event emitted when stETH secondary oracle is updated
-    event StETHSecondaryOracleUpdated(AggregatorV3Interface oracleAddress);
-
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor(IERC20 _stETH) {
@@ -72,67 +69,6 @@ contract RenzoOracle is
 
         tokenOracleLookup[_token] = _oracleAddress;
         emit OracleAddressUpdated(_token, _oracleAddress);
-    }
-
-    /**
-     * @notice  Sets stETH exchange rate oracle
-     * @dev     permissioned call (only OracleAdmin)
-     * @param   _oracleAddress  address or new oracle
-     */
-    function setStETHSecondaryOracle(
-        AggregatorV3Interface _oracleAddress
-    ) external nonReentrant onlyOracleAdmin {
-        // Verify that the pricing of the oracle is 18 decimals - pricing calculations will be off otherwise
-        if (_oracleAddress.decimals() != 18)
-            revert InvalidTokenDecimals(18, _oracleAddress.decimals());
-
-        stETHSecondaryOracle = _oracleAddress;
-        emit StETHSecondaryOracleUpdated(_oracleAddress);
-    }
-
-    /**
-     * @notice  calculate stETH value in terms of ETH through market rate~
-     * @param   _balance  amount of stETH to convert in ETH
-     * @return  uint256  stETH value in ETH through secondary exchange rate (DEX price)
-     */
-    function lookupTokenSecondaryValue(
-        IERC20 _token,
-        uint256 _balance
-    ) public view returns (uint256) {
-        if (_token == stETH) {
-            // if stETH secondary Oracle is not set then return 1:1
-            if (address(stETHSecondaryOracle) == address(0)) return _balance;
-
-            // check the last price
-            (, int256 price, , uint256 timestamp, ) = stETHSecondaryOracle.latestRoundData();
-            if (timestamp < block.timestamp - MAX_TIME_WINDOW) revert OraclePriceExpired();
-            if (price <= 0) revert InvalidOraclePrice();
-
-            // Price is times 10**18 ensure value amount is scaled
-            return (uint256(price) * _balance) / SCALE_FACTOR;
-        } else {
-            return lookupTokenValue(_token, _balance);
-        }
-    }
-
-    function lookupTokenSecondaryAmountFromValue(
-        IERC20 _token,
-        uint256 _value
-    ) public view returns (uint256) {
-        if (_token == stETH) {
-            // if stETH secondary Oracle is not set then return 1:1
-            if (address(stETHSecondaryOracle) == address(0)) return _value;
-
-            // check the last price
-            (, int256 price, , uint256 timestamp, ) = stETHSecondaryOracle.latestRoundData();
-            if (timestamp < block.timestamp - MAX_TIME_WINDOW) revert OraclePriceExpired();
-            if (price <= 0) revert InvalidOraclePrice();
-
-            // Price is times 10**18 ensure token amount is scaled
-            return (_value * SCALE_FACTOR) / uint256(price);
-        } else {
-            return lookupTokenAmountFromValue(_token, _value);
-        }
     }
 
     /// @dev Given a single token and balance, return value of the asset in underlying currency

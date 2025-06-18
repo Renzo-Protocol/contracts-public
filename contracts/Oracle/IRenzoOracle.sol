@@ -25,14 +25,4 @@ interface IRenzoOracle {
         uint256 _existingEzETHSupply,
         uint256 _currentValueInProtocol
     ) external pure returns (uint256);
-
-    function lookupTokenSecondaryValue(
-        IERC20 _token,
-        uint256 _balance
-    ) external view returns (uint256);
-
-    function lookupTokenSecondaryAmountFromValue(
-        IERC20 _token,
-        uint256 _value
-    ) external view returns (uint256);
 }

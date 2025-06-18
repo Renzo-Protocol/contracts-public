@@ -142,38 +142,38 @@ contract OperatorDelegator is
         eigenPod = IEigenPod(eigenPodManager.createPod());
     }
 
-    /**
-     * @notice  reinitializing the OperatorDelegator to track pre Slashing Upgrade queued shares, reinitialize with version 3
-     * @dev     permissioned call (onlyOperatorDelegatorAdmin), can only reinitialize once
-     * @param   _ethQueuedSharesDelta the shares delta for completed ETH withdrawals
-     * @param   preSlashingQueuedShares the shares for pre slashing queued withdrawals
-     * @param   preSlashingQueuedSharesToken the token address for pre slashing queued withdrawals
-     * @param   preSlashingWithdrawalRoots the withdrawal roots for pre slashing queued withdrawals
-     */
-    function reinitialize(
-        uint256 _ethQueuedSharesDelta,
-        uint256[] calldata preSlashingQueuedShares,
-        address[] calldata preSlashingQueuedSharesToken,
-        bytes32[] calldata preSlashingWithdrawalRoots
-    ) external onlyOperatorDelegatorAdmin reinitializer(3) {
-        // reset queued shares delta for completed withdrawals
-        queuedShares[IS_NATIVE] -= _ethQueuedSharesDelta;
+    // /**
+    //  * @notice  reinitializing the OperatorDelegator to track pre Slashing Upgrade queued shares, reinitialize with version 3
+    //  * @dev     permissioned call (onlyOperatorDelegatorAdmin), can only reinitialize once
+    //  * @param   _ethQueuedSharesDelta the shares delta for completed ETH withdrawals
+    //  * @param   preSlashingQueuedShares the shares for pre slashing queued withdrawals
+    //  * @param   preSlashingQueuedSharesToken the token address for pre slashing queued withdrawals
+    //  * @param   preSlashingWithdrawalRoots the withdrawal roots for pre slashing queued withdrawals
+    //  */
+    // function reinitialize(
+    //     uint256 _ethQueuedSharesDelta,
+    //     uint256[] calldata preSlashingQueuedShares,
+    //     address[] calldata preSlashingQueuedSharesToken,
+    //     bytes32[] calldata preSlashingWithdrawalRoots
+    // ) external onlyOperatorDelegatorAdmin reinitializer(3) {
+    //     // reset queued shares delta for completed withdrawals
+    //     queuedShares[IS_NATIVE] -= _ethQueuedSharesDelta;
 
-        // set initial withdrawable shares for pending queued shares
-        if (
-            preSlashingQueuedShares.length != preSlashingQueuedSharesToken.length ||
-            preSlashingQueuedShares.length != preSlashingWithdrawalRoots.length
-        ) revert MismatchedArrayLengths();
+    //     // set initial withdrawable shares for pending queued shares
+    //     if (
+    //         preSlashingQueuedShares.length != preSlashingQueuedSharesToken.length ||
+    //         preSlashingQueuedShares.length != preSlashingWithdrawalRoots.length
+    //     ) revert MismatchedArrayLengths();
 
-        for (uint256 i = 0; i < preSlashingQueuedShares.length; ) {
-            queuedWithdrawalTokenInfo[preSlashingWithdrawalRoots[i]][
-                preSlashingQueuedSharesToken[i]
-            ].initialWithdrawableShares = preSlashingQueuedShares[i];
-            unchecked {
-                ++i;
-            }
-        }
-    }
+    //     for (uint256 i = 0; i < preSlashingQueuedShares.length; ) {
+    //         queuedWithdrawalTokenInfo[preSlashingWithdrawalRoots[i]][
+    //             preSlashingQueuedSharesToken[i]
+    //         ].initialWithdrawableShares = preSlashingQueuedShares[i];
+    //         unchecked {
+    //             ++i;
+    //         }
+    //     }
+    // }
 
     /// @dev Sets the strategy for a given token - setting strategy to 0x0 removes the ability to deposit and withdraw token
     function setTokenStrategy(
@@ -390,7 +390,6 @@ contract OperatorDelegator is
         uint256 gasBefore = gasleft();
         if (tokens.length != withdrawal.strategies.length) revert MismatchedArrayLengths();
 
-        // Note: Using try catch to handle the slashing upgrade of EL.
         // complete the queued withdrawal from EigenLayer with receiveAsToken set to true
         OperatorDelegatorLib.completeQueuedWithdrawal(withdrawal, tokens, delegationManager);
 
@@ -417,7 +416,6 @@ contract OperatorDelegator is
         if (withdrawals.length != tokens.length || withdrawals.length != receiveAsTokens.length)
             revert MismatchedArrayLengths();
 
-        // Note: Using try catch to handle the slashing upgrade of EL.
         // complete queued withdrawals
         OperatorDelegatorLib.completeQueuedWithdrawals(
             withdrawals,
@@ -459,7 +457,6 @@ contract OperatorDelegator is
     function getTokenBalanceFromStrategy(IERC20 token) external view returns (uint256) {
         return
             OperatorDelegatorLib.getTokenBalanceFromStrategy(
-                queuedShares[address(token)],
                 _getQueuedSharesWithSlashing(address(token)),
                 delegationManager,
                 tokenStrategyMapping[token]
@@ -473,7 +470,6 @@ contract OperatorDelegator is
 
         return
             OperatorDelegatorLib.getStakedETHBalance(
-                queuedShares[IS_NATIVE],
                 _getQueuedSharesWithSlashing(IS_NATIVE),
                 stakedButNotVerifiedEth,
                 _getPartialWithdrawalsPodDelta(),
@@ -737,8 +733,12 @@ contract OperatorDelegator is
      */
     function _recordGas(uint256 initialGas, uint256 baseGasAmount) internal {
         uint256 gasSpent = (initialGas - gasleft() + baseGasAmount) * block.basefee;
-        adminGasSpentInWei[msg.sender] += gasSpent;
-        emit GasSpent(msg.sender, gasSpent);
+
+        // get the gas refund address if configured
+        address _gasRefundAddress = gasRefundAddress == address(0) ? msg.sender : gasRefundAddress;
+
+        adminGasSpentInWei[_gasRefundAddress] += gasSpent;
+        emit GasSpent(_gasRefundAddress, gasSpent);
     }
 
     ///@notice Calculates the pubkey hash of a validator's pubkey as per SSZ spec
@@ -759,16 +759,13 @@ contract OperatorDelegator is
             ? adminGasSpentInWei[tx.origin]
             : address(this).balance;
 
-        // get the gas refund address if configured
-        address _gasRefundAddress = gasRefundAddress == address(0) ? tx.origin : gasRefundAddress;
-
-        bool success = payable(_gasRefundAddress).send(gasRefund);
+        bool success = payable(tx.origin).send(gasRefund);
         if (!success) revert TransferFailed();
 
         // reset gas spent by admin
         adminGasSpentInWei[tx.origin] -= gasRefund;
 
-        emit GasRefunded(_gasRefundAddress, gasRefund);
+        emit GasRefunded(tx.origin, gasRefund);
         return gasRefund;
     }
 

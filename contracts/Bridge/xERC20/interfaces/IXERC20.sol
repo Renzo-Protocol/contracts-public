@@ -132,4 +132,7 @@ interface IXERC20 {
      */
 
     function burn(address _user, uint256 _amount) external;
+
+    function owner() external view returns (address);
+    function balanceOf(address _user) external view returns (uint256);
 }

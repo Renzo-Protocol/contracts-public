@@ -70,7 +70,6 @@ contract LidoOPValueTransfer is IValueTransferBridge {
 
         // Pull the token in and then give the allowance
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20(token).safeIncreaseAllowance(address(lidoBridge), amount);
 
         // TODO: Determine if we need to add extra data to track this tx
         bytes memory extraData;

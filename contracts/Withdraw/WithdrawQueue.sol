@@ -12,9 +12,17 @@ contract WithdrawQueue is
     Initializable,
     PausableUpgradeable,
     ReentrancyGuardUpgradeable,
-    WithdrawQueueStorageV5
+    WithdrawQueueStorageV6
 {
     using SafeERC20 for IERC20;
+
+    /// @dev RiskOracleMiddleware contract
+    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+    IRiskOracleMiddleware public immutable riskOracleMiddleware;
+
+    /// @dev address to the LIDO stETH withdraw queue
+    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+    IstETHWithdrawalQueue public immutable stETHWithdrawalQueue;
 
     event WithdrawBufferTargetUpdated(uint256 oldBufferTarget, uint256 newBufferTarget);
 
@@ -42,6 +50,8 @@ contract WithdrawQueue is
     event WithdrawQueueDisabled(address asset);
     event WhitelistUpdated(address[] accounts, bool[] accountsStatus);
     event StETHDepositorsUpdated(address[] accounts, uint256[] ezETHBalances);
+    event StETHRebalanceStarted(uint256 requestId, uint256 amount);
+    event StETHRebalanceCompleted(uint256 requestId, uint256 amount);
 
     /// @dev Allows only Withdraw Queue Admin to configure the contract
     modifier onlyWithdrawQueueAdmin() {
@@ -66,10 +76,39 @@ contract WithdrawQueue is
         _;
     }
 
+    modifier whenWithdrawRequestNotPaused() {
+        _requireNotPaused();
+        if (riskOracleMiddleware.withdrawRequestPaused()) revert WithdrawRequestPaused();
+        _;
+    }
+
+    modifier whenClaimNotPaused() {
+        _requireNotPaused();
+        if (riskOracleMiddleware.withdrawClaimPaused()) revert ClaimPaused();
+        _;
+    }
+
+    modifier onlyRebalanceAdmin() {
+        if (!roleManager.isWithdrawQueueRebalanceAdmin(msg.sender))
+            revert NotDepositWithdrawPauser();
+        _;
+    }
+
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
+    constructor(
+        IRiskOracleMiddleware _riskOracleMiddleware,
+        IstETHWithdrawalQueue _stETHWithdrawalQueue
+    ) {
         _disableInitializers();
+        if (
+            address(_riskOracleMiddleware) == address(0) ||
+            address(_stETHWithdrawalQueue) == address(0)
+        ) revert InvalidZeroInput();
+        // set risk oracle middleware address in the immutable variable
+        riskOracleMiddleware = _riskOracleMiddleware;
+        // Set the address of the stETH Withdraw Queue in the immutable variable
+        stETHWithdrawalQueue = _stETHWithdrawalQueue;
     }
 
     /**
@@ -191,37 +230,6 @@ contract WithdrawQueue is
         emit WhitelistUpdated(_accounts, _accountsStatus);
     }
 
-    /// @dev Deprecated function
-    // /**
-    //  * @notice  disables Withdraw Queue for specified ERC20 asset
-    //  * @dev     It is a permissioned call (onlyWithdrawQueueAdmin)
-    //  * @param   _asset  collateral asset address to disable withdraw queue for
-    //  */
-    // function disableERC20WithdrawQueue(address _asset) external onlyWithdrawQueueAdmin {
-    //     if (_asset == address(0)) revert InvalidZeroInput();
-    //     // check if withdraw queue enabled for asset
-    //     if (!erc20WithdrawQueueEnabled[_asset]) revert WithdrawQueueNotEnabled();
-
-    //     erc20WithdrawQueueEnabled[_asset] = false;
-
-    //     emit WithdrawQueueDisabled(_asset);
-    // }
-
-    function setStETHDepositors(
-        address[] calldata _accounts,
-        uint256[] calldata _ezETHBalances
-    ) external onlyWithdrawQueueAdmin {
-        if (_accounts.length != _ezETHBalances.length) revert MismatchedArrayLengths();
-        for (uint256 i = 0; i < _accounts.length; ) {
-            if (_accounts[i] == address(0)) revert InvalidZeroInput();
-            stETHDepositors[_accounts[i]] = _ezETHBalances[i];
-            unchecked {
-                ++i;
-            }
-        }
-        emit StETHDepositorsUpdated(_accounts, _ezETHBalances);
-    }
-
     /**
      * @notice  Pause the contract
      * @dev     Permissioned call (onlyDepositWithdrawPauserAdmin)
@@ -236,6 +244,80 @@ contract WithdrawQueue is
      */
     function unpause() external onlyDepositWithdrawPauserAdmin {
         _unpause();
+    }
+
+    /**
+     * @notice  start rebalance for stETH
+     * @dev     permissioned call (onlyWithdrawQueueAdmin)
+     * @param   _amount  amount of stETH to rebalance
+     */
+    function startStETHRebalance(uint256 _amount) external onlyRebalanceAdmin returns (uint256) {
+        IERC20 stETH = IERC20(renzoOracle.stETH());
+
+        // Check if the amount is available in the queue
+        if (_amount == 0 || _amount > getAvailableToWithdraw(address(stETH)))
+            revert InvalidTokenAmount();
+
+        // Approve the stETH withdrawal queue to transfer the stETH
+        stETH.safeIncreaseAllowance(address(stETHWithdrawalQueue), _amount);
+
+        // Due to 1 wei rounding error, we need to check the balance before and after to get the actual amount moved out
+        uint256 balanceBefore = stETH.balanceOf(address(this));
+
+        // Submit the request
+        uint256[] memory requestAmounts = new uint256[](1);
+        requestAmounts[0] = _amount;
+        uint256[] memory requestIds = stETHWithdrawalQueue.requestWithdrawals(
+            requestAmounts,
+            address(this)
+        );
+
+        uint256 balanceDiff = balanceBefore - stETH.balanceOf(address(this));
+
+        // Track outstanding amount
+        stETHPendingWithdrawAmount += balanceDiff;
+
+        // Track individual withdraw amount
+        stETHPendingWithdrawAmountById[requestIds[0]] = balanceDiff;
+
+        // emit the event
+        emit StETHRebalanceStarted(requestIds[0], balanceDiff);
+
+        return requestIds[0];
+    }
+
+    /**
+     * @notice  Completes an stETH rebalance - claim the stETH withdrawal as ETH
+     * @dev     Only Rebalance Admin can call
+     * @param   _requestId  - created in startStETHRebalance
+     * @param   _hint  - offchain lookup hint for the stETH withdrawal queue
+     */
+    function completeStETHRebalance(uint256 _requestId, uint256 _hint) external onlyRebalanceAdmin {
+        uint256[] memory requestIds = new uint256[](1);
+        requestIds[0] = _requestId;
+
+        uint256[] memory hints = new uint256[](1);
+        hints[0] = _hint;
+
+        // Subtract back out the pending amount after the ETH has been received
+        stETHPendingWithdrawAmount -= stETHPendingWithdrawAmountById[_requestId];
+
+        // Claim the stETH withdrawal
+        stETHWithdrawalQueue.claimWithdrawals(requestIds, hints);
+
+        emit StETHRebalanceCompleted(_requestId, stETHPendingWithdrawAmountById[_requestId]);
+    }
+
+    /**
+     * @notice Receives ETH from the stETH withdrawal queue.  All other senders will be reverted.
+     * @dev This is not marked as "nonreentrant" since it is expected that the deposit queue will
+     *      call back with value to fill the buffer.
+     */
+    receive() external payable {
+        if (msg.sender != address(stETHWithdrawalQueue)) revert TransferFailed();
+
+        // Route the funds to the deposit queue (buffer will be filled from there)
+        restakeManager.depositQueue().forwardFullWithdrawalETH{ value: msg.value }();
     }
 
     /**
@@ -306,7 +388,10 @@ contract WithdrawQueue is
      * @param   _amount  amount of ezETH to withdraw
      * @param   _assetOut  output token to receive on claim
      */
-    function withdraw(uint256 _amount, address _assetOut) external nonReentrant whenNotPaused {
+    function withdraw(
+        uint256 _amount,
+        address _assetOut
+    ) external nonReentrant whenWithdrawRequestNotPaused {
         // check for 0 values
         if (_amount == 0 || _assetOut == address(0)) revert InvalidZeroInput();
 
@@ -337,13 +422,28 @@ contract WithdrawQueue is
      * @param   withdrawRequestIndex  Index of the Withdraw Request user wants to claim
      * @param   user address of the user to claim withdrawRequest for
      */
-    function claim(uint256 withdrawRequestIndex, address user) external nonReentrant whenNotPaused {
+    function claim(
+        uint256 withdrawRequestIndex,
+        address user
+    ) external nonReentrant whenClaimNotPaused {
         // check if provided withdrawRequest Index is valid
         if (withdrawRequestIndex >= withdrawRequests[user].length) revert InvalidWithdrawIndex();
 
         WithdrawRequest memory _withdrawRequest = withdrawRequests[user][withdrawRequestIndex];
-        if (!whitelisted[user] && (block.timestamp - _withdrawRequest.createdAt < coolDownPeriod))
-            revert EarlyClaim();
+
+        bool _instantWithdrawPaused = riskOracleMiddleware.instantWithdrawPaused();
+        // bypass cooldown period validation if
+        //  - instant withdrawal is not paused
+        //  - and user is whitelisted
+        if (_instantWithdrawPaused || !whitelisted[user]) {
+            uint256 _riskOracleCoolDownPeriod = riskOracleMiddleware.withdrawCooldownPeriod();
+            // if cooldown is increased by risk oracle then use that, otherwise use default
+            uint256 _coolDownPeriod = _riskOracleCoolDownPeriod > coolDownPeriod
+                ? _riskOracleCoolDownPeriod
+                : coolDownPeriod;
+
+            if (block.timestamp - _withdrawRequest.createdAt < _coolDownPeriod) revert EarlyClaim();
+        }
 
         if (_withdrawRequest.collateralToken == IS_NATIVE) {
             claimETH(_withdrawRequest, user, withdrawRequestIndex);
@@ -357,12 +457,6 @@ contract WithdrawQueue is
         address user,
         uint256 withdrawRequestIndex
     ) internal {
-        // calculate the amount to redeem
-        (, uint256 claimAmountToRedeem) = calculateAmountToRedeem(
-            _withdrawRequest.ezETHLocked,
-            IS_NATIVE
-        );
-
         bytes32 _withdrawHash = keccak256(abi.encode(_withdrawRequest, user));
         uint256 withdrawQueueFilled = ethWithdrawQueue.queuedWithdrawFilled;
 
@@ -372,6 +466,11 @@ contract WithdrawQueue is
             withdrawQueued[_withdrawHash].fillAt > withdrawQueueFilled
         ) revert QueuedWithdrawalNotFilled();
 
+        // calculate the amount to redeem
+        (, uint256 claimAmountToRedeem) = calculateAmountToRedeem(
+            _withdrawRequest.ezETHLocked,
+            IS_NATIVE
+        );
         // reduce initial amountToRedeem from claim reserve
         claimReserve[IS_NATIVE] -= _withdrawRequest.amountToRedeem;
 
@@ -411,28 +510,11 @@ contract WithdrawQueue is
             withdrawQueued[_withdrawHash].fillAt > withdrawQueueFilled
         ) revert QueuedWithdrawalNotFilled();
 
-        // check if user allowed to claim at secondary rate
-        // calculate max amount to redeem at secondary rate
-        (
-            uint256 remainingEzEthAmount,
-            uint256 claimAmountToRedeemAtSecondaryRate
-        ) = _checkAndClaimAtSecondaryRate(
-                _withdrawHash,
-                _withdrawRequest.ezETHLocked,
-                _withdrawRequest.collateralToken
-            );
-
-        uint256 claimAmountToRedeem = 0;
-        if (remainingEzEthAmount > 0) {
-            // calculate the amount to redeem
-            (, claimAmountToRedeem) = calculateAmountToRedeem(
-                remainingEzEthAmount,
-                _withdrawRequest.collateralToken
-            );
-            claimAmountToRedeem += claimAmountToRedeemAtSecondaryRate;
-        } else {
-            claimAmountToRedeem = claimAmountToRedeemAtSecondaryRate;
-        }
+        // calculate the amount to redeem
+        (, uint256 claimAmountToRedeem) = calculateAmountToRedeem(
+            _withdrawRequest.ezETHLocked,
+            _withdrawRequest.collateralToken
+        );
 
         // reduce initial amountToRedeem from claim reserve
         claimReserve[_withdrawRequest.collateralToken] -= _withdrawRequest.amountToRedeem;
@@ -521,26 +603,11 @@ contract WithdrawQueue is
     }
 
     function withdrawERC20(uint256 _amount, address _assetOut) internal {
-        // check if user allowed to withdraw at secondary rate
-        // calculate max amount to redeem at secondary rate for users with stETH deposits
-        (
-            uint256 remainingEzEthAmount,
-            uint256 amountToRedeemAtSecondaryRate
-        ) = _checkAndWithdrawAtSecondaryRate(_amount, _assetOut);
-
         // calculate amount to redeem at primary rate
-        uint256[][] memory _operatorDelegatorTokenTVLs;
-        uint256 amountToRedeem;
-        if (remainingEzEthAmount > 0) {
-            (_operatorDelegatorTokenTVLs, amountToRedeem) = calculateAmountToRedeem(
-                remainingEzEthAmount,
-                _assetOut
-            );
-            // get totalAmount to Redeem
-            amountToRedeem += amountToRedeemAtSecondaryRate;
-        } else {
-            amountToRedeem = amountToRedeemAtSecondaryRate;
-        }
+        (
+            uint256[][] memory _operatorDelegatorTokenTVLs,
+            uint256 amountToRedeem
+        ) = calculateAmountToRedeem(_amount, _assetOut);
 
         // increment the withdrawRequestNonce
         withdrawRequestNonce++;
@@ -587,11 +654,6 @@ contract WithdrawQueue is
             claimReserve[_assetOut] += amountToRedeem;
         }
 
-        // track if amount to redeem at secondary rate is greater than 0 track stETH depositor
-        if (amountToRedeemAtSecondaryRate > 0) {
-            stETHDepositorsWithdrawalAmount[withdrawHash] = _amount - remainingEzEthAmount;
-        }
-
         // add withdraw request for msg.sender
         withdrawRequests[msg.sender].push(withdrawRequest);
 
@@ -605,75 +667,6 @@ contract WithdrawQueue is
             queued,
             availableToWithdraw
         );
-    }
-
-    function _checkAndClaimAtSecondaryRate(
-        bytes32 _withdrawHash,
-        uint256 _amount,
-        address _assetOut
-    ) internal returns (uint256 remainingEzEthAmount, uint256 claimAmountToRedeemAtSecondaryRate) {
-        // get secondary market amount if required
-        if (stETHDepositorsWithdrawalAmount[_withdrawHash] > 0) {
-            (, claimAmountToRedeemAtSecondaryRate) = _calculateStETHAmountToRedeemAtSecondaryRate(
-                stETHDepositorsWithdrawalAmount[_withdrawHash],
-                _assetOut
-            );
-            // remaining amount to claim at primary rate
-            remainingEzEthAmount = _amount - stETHDepositorsWithdrawalAmount[_withdrawHash];
-
-            // reset stETH depositors withdrawal amount to 0
-            stETHDepositorsWithdrawalAmount[_withdrawHash] = 0;
-        } else {
-            remainingEzEthAmount = _amount;
-        }
-    }
-
-    function _checkAndWithdrawAtSecondaryRate(
-        uint256 _amount,
-        address _assetOut
-    ) internal returns (uint256 remainingEzEthAmount, uint256 amountToRedeemAtSecondaryRate) {
-        if (stETHDepositors[msg.sender] > 0 && _assetOut == address(renzoOracle.stETH())) {
-            uint256 secondaryRateMaxWithdraw = _amount > stETHDepositors[msg.sender]
-                ? stETHDepositors[msg.sender]
-                : _amount;
-            (, amountToRedeemAtSecondaryRate) = _calculateStETHAmountToRedeemAtSecondaryRate(
-                secondaryRateMaxWithdraw,
-                _assetOut
-            );
-            // reduce stETHDepositors ezETH balance
-            stETHDepositors[msg.sender] -= secondaryRateMaxWithdraw;
-
-            // remaining amount to withdraw at primary rate
-            remainingEzEthAmount = _amount - secondaryRateMaxWithdraw;
-        } else {
-            // remaining amount to withdraw at primary rate
-            remainingEzEthAmount = _amount;
-        }
-    }
-
-    function _calculateStETHAmountToRedeemAtSecondaryRate(
-        uint256 _amount,
-        address _assetOut
-    )
-        internal
-        view
-        returns (uint256[][] memory operatorDelegatorTokenTVLs, uint256 _amountToRedeem)
-    {
-        uint256 totalTVL = 0;
-        // calculate totalTVL
-        (operatorDelegatorTokenTVLs, , totalTVL) = restakeManager.calculateTVLsStETHMarketRate();
-
-        // Calculate amount to Redeem in ETH
-        _amountToRedeem = renzoOracle.calculateRedeemAmount(_amount, ezETH.totalSupply(), totalTVL);
-
-        // update amount in claim asset, if claim asset is not ETH
-        if (_assetOut != IS_NATIVE) {
-            // Get ERC20 asset equivalent amount
-            _amountToRedeem = renzoOracle.lookupTokenSecondaryAmountFromValue(
-                IERC20(_assetOut),
-                _amountToRedeem
-            );
-        }
     }
 
     function calculateAmountToRedeem(

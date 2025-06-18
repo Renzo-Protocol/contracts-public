@@ -91,18 +91,6 @@ interface IEigenPodManager is
     IPausable,
     ISemVerMixin
 {
-    /// Note:
-    /// @dev Using pre slashing interface to handle EL slashing upgrade on chain
-    /**
-     * @notice Mapping from Pod owner owner to the number of shares they have in the virtual beacon chain ETH strategy.
-     * @dev The share amount can become negative. This is necessary to accommodate the fact that a pod owner's virtual beacon chain ETH shares can
-     * decrease between the pod owner queuing and completing a withdrawal.
-     * When the pod owner's shares would otherwise increase, this "deficit" is decreased first _instead_.
-     * Likewise, when a withdrawal is completed, this "deficit" is decreased and the withdrawal amount is decreased; We can think of this
-     * as the withdrawal "paying off the deficit".
-     */
-    function podOwnerShares(address podOwner) external view returns (int256);
-
     /**
      * @notice Creates an EigenPod for the sender.
      * @dev Function will revert if the `msg.sender` already has an EigenPod.

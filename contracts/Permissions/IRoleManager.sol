@@ -60,15 +60,19 @@ interface IRoleManager {
     /// @param potentialAddress Address to check
     function isEigenLayerRewardsAdmin(address potentialAddress) external view returns (bool);
 
-    /// @dev Determin if the specified address has permission to track missed Checkpoints Exit Balance
+    /// @dev Determine if the specified address has permission to track missed Checkpoints Exit Balance
     /// @param potentialAddress Address to check
     function isEmergencyCheckpointTrackingAdmin(
         address potentialAddress
     ) external view returns (bool);
 
-    /// @dev Determin if the specified address has permission to track AVS ETH slashing amount
+    /// @dev Determine if the specified address has permission to track AVS ETH slashing amount
     /// @param potentialAddress Address to check
     function isEmergencyTrackAVSEthSlashingAdmin(
         address potentialAddress
     ) external view returns (bool);
+
+    /// @dev Determine if the specified address has permission to rebalance the withdraw queue
+    /// @param potentialAddress Address to check
+    function isWithdrawQueueRebalanceAdmin(address potentialAddress) external view returns (bool);
 }

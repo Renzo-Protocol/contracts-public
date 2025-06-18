@@ -14,6 +14,7 @@ import "./EigenLayer/interfaces/IDelegationManager.sol";
 import "./token/IEzEthToken.sol";
 import "./IRestakeManager.sol";
 import "./Errors/Errors.sol";
+import "./Oracle/RiskOracle/IRiskOracleMiddleware.sol";
 
 /**
  * @author  Renzo
@@ -25,6 +26,9 @@ import "./Errors/Errors.sol";
 contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeManagerStorageV2 {
     using SafeERC20 for IERC20;
     using SafeERC20Upgradeable for IEzEthToken;
+
+    /// @dev reference to RiskOracleMiddleware contract
+    IRiskOracleMiddleware public immutable riskOracleMiddleware;
 
     event OperatorDelegatorAdded(IOperatorDelegator od);
     event OperatorDelegatorRemoved(IOperatorDelegator od);
@@ -86,13 +90,15 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
 
     /// @dev Only allows execution if contract is not paused
     modifier notPaused() {
-        if (paused) revert ContractPaused();
+        if (paused || riskOracleMiddleware.depositPaused()) revert ContractPaused();
         _;
     }
 
     /// @dev Prevents implementation contract from being initialized.
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
+    constructor(IRiskOracleMiddleware _riskOracleMiddleware) {
+        if (address(_riskOracleMiddleware) == address(0)) revert InvalidZeroInput();
+        riskOracleMiddleware = _riskOracleMiddleware;
         _disableInitializers();
     }
 
@@ -282,18 +288,12 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         return collateralTokens.length;
     }
 
-    function calculateTVLs() public view returns (uint256[][] memory, uint256[] memory, uint256) {
-        return _calculateTVLs(false);
-    }
-
     /// @dev This function calculates the TVLs for each operator delegator by individual token, total for each OD, and total for the protocol.
     /// @return operatorDelegatorTokenTVLs Each OD's TVL indexed by operatorDelegators array by collateralTokens array
     /// @return operatorDelegatorTVLs Each OD's Total TVL in order of operatorDelegators array
     /// @return totalTVL The total TVL across all operator delegators.
     /// Note: Any change to the structure of the function would require change in WithdrawQueue::_checkAvailableCollateralValue()
-    function _calculateTVLs(
-        bool marketRate
-    ) internal view returns (uint256[][] memory, uint256[] memory, uint256) {
+    function calculateTVLs() public view returns (uint256[][] memory, uint256[] memory, uint256) {
         uint256[][] memory operatorDelegatorTokenTVLs = new uint256[][](operatorDelegators.length);
         uint256[] memory operatorDelegatorTVLs = new uint256[](operatorDelegators.length);
         uint256 totalTVL = 0;
@@ -329,34 +329,20 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
                 );
 
                 // Set the value in the array for this OD
-                if (marketRate) {
-                    operatorValues[j] = renzoOracle.lookupTokenSecondaryValue(
-                        collateralTokens[j],
-                        operatorBalance
-                    );
-                } else {
-                    operatorValues[j] = renzoOracle.lookupTokenValue(
-                        collateralTokens[j],
-                        operatorBalance
-                    );
-                }
+                operatorValues[j] = renzoOracle.lookupTokenValue(
+                    collateralTokens[j],
+                    operatorBalance
+                );
 
                 // Add it to the total TVL for this OD
                 operatorTVL += operatorValues[j];
 
                 // record token value of withdraw queue from first operator collateral tokens
                 if (i == 0) {
-                    if (marketRate) {
-                        totalWithdrawalQueueValue += renzoOracle.lookupTokenSecondaryValue(
-                            collateralTokens[j],
-                            collateralTokens[j].balanceOf(withdrawQueue)
-                        );
-                    } else {
-                        totalWithdrawalQueueValue += renzoOracle.lookupTokenValue(
-                            collateralTokens[j],
-                            collateralTokens[j].balanceOf(withdrawQueue)
-                        );
-                    }
+                    totalWithdrawalQueueValue += renzoOracle.lookupTokenValue(
+                        collateralTokens[j],
+                        collateralTokens[j].balanceOf(withdrawQueue)
+                    );
                 }
 
                 unchecked {
@@ -390,20 +376,10 @@ contract RestakeManager is Initializable, ReentrancyGuardUpgradeable, RestakeMan
         // Add native ETH held in withdraw Queue and totalWithdrawalQueueValue to totalTVL
         totalTVL += (address(withdrawQueue).balance + totalWithdrawalQueueValue);
 
-        return (operatorDelegatorTokenTVLs, operatorDelegatorTVLs, totalTVL);
-    }
+        // Add pending stETH from the stETH withdraw queue
+        totalTVL += IWithdrawQueue(withdrawQueue).stETHPendingWithdrawAmount();
 
-    // @dev This function calculates the TVLs using stETH market rate for each operator delegator by individual token, total for each OD, and total for the protocol.
-    /// @return operatorDelegatorTokenTVLs Each OD's TVL indexed by operatorDelegators array by collateralTokens array
-    /// @return operatorDelegatorTVLs Each OD's Total TVL in order of operatorDelegators array
-    /// @return totalTVL The total TVL across all operator delegators.
-    /// Note: Any change to the structure of the function would require change in WithdrawQueue::_checkAvailableCollateralValue()
-    function calculateTVLsStETHMarketRate()
-        public
-        view
-        returns (uint256[][] memory, uint256[] memory, uint256)
-    {
-        return _calculateTVLs(true);
+        return (operatorDelegatorTokenTVLs, operatorDelegatorTVLs, totalTVL);
     }
 
     /// @dev Picks the OperatorDelegator with the TVL below the threshold or returns the first one in the list

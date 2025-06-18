@@ -188,35 +188,28 @@ library OperatorDelegatorLib {
 
     /// @dev Calculates the underlying token amount from the amount of shares + queued withdrawal shares
     function getTokenBalanceFromStrategy(
-        uint256 queuedShares,
         uint256 queuedSharesWithSlashing,
         IDelegationManager delegationManager,
         IStrategy strategy
     ) external view returns (uint256) {
         IStrategy[] memory strategies = new IStrategy[](1);
         strategies[0] = strategy;
-        try delegationManager.getWithdrawableShares(address(this), strategies) returns (
-            uint256[] memory withdrawableShares,
-            uint256[] memory
-        ) {
-            // get withdrawable shares from EigenLayer
-            uint256 collateralBalance = withdrawableShares[0];
+        (uint256[] memory withdrawableShares, ) = delegationManager.getWithdrawableShares(
+            address(this),
+            strategies
+        );
 
-            // add queued shares for the token with slashing
-            collateralBalance += queuedSharesWithSlashing;
+        // get withdrawable shares from EigenLayer
+        uint256 collateralBalance = withdrawableShares[0];
+        // add queued shares for the token with slashing
+        collateralBalance += queuedSharesWithSlashing;
 
-            // convert shares to underlying
-            return strategy.sharesToUnderlyingView(collateralBalance);
-        } catch {
-            return
-                strategy.userUnderlyingView(address(this)) +
-                strategy.sharesToUnderlyingView(queuedShares);
-        }
+        // convert shares to underlying
+        return strategy.sharesToUnderlyingView(collateralBalance);
     }
 
     /// @dev Calculate the amount of ETH staked in the EigenLayer
     function getStakedETHBalance(
-        uint256 queuedShares,
         uint256 queuedSharesWithSlashing,
         uint256 stakedButNotVerifiedEth,
         uint256 partialWithdrawalPodDelta,
@@ -226,33 +219,20 @@ library OperatorDelegatorLib {
         IStrategy[] memory strategies = new IStrategy[](1);
         strategies[0] = eigenPodManager.beaconChainETHStrategy();
 
-        try delegationManager.getWithdrawableShares(address(this), strategies) returns (
-            uint256[] memory withdrawableShares,
-            uint256[] memory
-        ) {
-            // get withdrawable shares from EigenLayer
-            uint256 collateralBalance = withdrawableShares[0];
+        (uint256[] memory withdrawableShares, ) = delegationManager.getWithdrawableShares(
+            address(this),
+            strategies
+        );
+        // get withdrawable shares from EigenLayer
+        uint256 collateralBalance = withdrawableShares[0];
 
-            // accounts for current podOwner shares + stakedButNotVerified ETH + queued withdraw shares - podDelta
-            collateralBalance += (queuedSharesWithSlashing + stakedButNotVerifiedEth);
+        // accounts for current podOwner shares + stakedButNotVerified ETH + queued withdraw shares - podDelta
+        collateralBalance += (queuedSharesWithSlashing + stakedButNotVerifiedEth);
 
-            // subtract the partial withdrawals podDelta
-            collateralBalance -= partialWithdrawalPodDelta;
+        // subtract the partial withdrawals podDelta
+        collateralBalance -= partialWithdrawalPodDelta;
 
-            return collateralBalance;
-        } catch {
-            // accounts for current podOwner shares + stakedButNotVerified ETH + queued withdraw shares - podDelta
-            int256 podOwnerShares = eigenPodManager.podOwnerShares(address(this));
-
-            if (podOwnerShares < 0) {
-                return
-                    (queuedShares + stakedButNotVerifiedEth - uint256(-podOwnerShares)) -
-                    partialWithdrawalPodDelta;
-            }
-            return
-                (queuedShares + stakedButNotVerifiedEth + uint256(podOwnerShares)) -
-                partialWithdrawalPodDelta;
-        }
+        return collateralBalance;
     }
 
     function trackQueuedWithdrawals(
@@ -289,20 +269,14 @@ library OperatorDelegatorLib {
             ) revert IncorrectStrategy();
 
             uint256 withdrawableShares;
-            // Note: using try catch to handle EigenLayer slashing upgrade
+
             // get current shares of queuedWithdrawal from EigenLayer DelegationManager
-            try delegationManager.getQueuedWithdrawal(withdrawalRoot) returns (
-                IDelegationManager.Withdrawal memory,
-                uint256[] memory currentShares
-            ) {
-                // track queued shares for the token in withdrawable shares
-                queuedShares[address(tokens[i])] += currentShares[0];
-                withdrawableShares = currentShares[0];
-            } catch {
-                // track queued shares for the token in scaled shares
-                queuedShares[address(tokens[i])] += withdrawals[i].scaledShares[0];
-                withdrawableShares = withdrawals[i].scaledShares[0];
-            }
+            (, uint256[] memory currentShares) = delegationManager.getQueuedWithdrawal(
+                withdrawalRoot
+            );
+            // track queued shares for the token in withdrawable shares
+            queuedShares[address(tokens[i])] += currentShares[0];
+            withdrawableShares = currentShares[0];
 
             // track initial withdrawable shares of the token in queuedWithdrawal
             queuedWithdrawalTokenInfo[withdrawalRoot][address(tokens[i])]
@@ -317,43 +291,25 @@ library OperatorDelegatorLib {
         }
     }
 
-    // complete queuedWithdrawals with try catch to handle Eigenlayer slashing upgrade
+    // complete queuedWithdrawals
     function completeQueuedWithdrawal(
         IDelegationManager.Withdrawal calldata withdrawal,
         IERC20[] calldata tokens,
         IDelegationManager delegationManager
     ) external {
-        // Note: Using try catch to handle the slashing upgrade of EL.
         // complete the queued withdrawal from EigenLayer with receiveAsToken set to true
-        // After upgrade
-        try delegationManager.completeQueuedWithdrawal(withdrawal, tokens, true) {} catch {
-            // before upgrade
-            delegationManager.completeQueuedWithdrawal(withdrawal, tokens, 0, true);
-        }
+        delegationManager.completeQueuedWithdrawal(withdrawal, tokens, true);
     }
 
-    // complete queuedWithdrawals with try catch to handle Eigenlayer slashing upgrade
+    // complete queuedWithdrawals
     function completeQueuedWithdrawals(
         IDelegationManager.Withdrawal[] calldata withdrawals,
         IERC20[][] calldata tokens,
         bool[] calldata receiveAsTokens,
         IDelegationManager delegationManager
     ) external {
-        // Note: Using try catch to handle the slashing upgrade of EL.
         // complete the queued withdrawal from EigenLayer
-        // After upgrade
-        try
-            delegationManager.completeQueuedWithdrawals(withdrawals, tokens, receiveAsTokens)
-        {} catch {
-            // before upgrade
-            uint256[] memory middlewareTimesIndexes = new uint256[](withdrawals.length);
-            delegationManager.completeQueuedWithdrawals(
-                withdrawals,
-                tokens,
-                middlewareTimesIndexes,
-                receiveAsTokens
-            );
-        }
+        delegationManager.completeQueuedWithdrawals(withdrawals, tokens, receiveAsTokens);
     }
 
     function _checkZeroAddress(address _potentialAddress) internal pure {
@@ -406,21 +362,12 @@ library OperatorDelegatorLib {
             withdrawableShares[0] = tokenStrategyMapping[token].underlyingToSharesView(tokenAmount);
         }
 
-        // Note: using try catch to handle Eigenlayer slashing upgrade
         // set deposit shares for the token
-        // After upgrade
-        try
-            delegationManager.convertToDepositShares(
-                address(this),
-                queuedWithdrawalParams[0].strategies,
-                withdrawableShares
-            )
-        returns (uint256[] memory depositShares) {
-            queuedWithdrawalParams[0].depositShares[0] = depositShares[0];
-        } catch {
-            // Before upgrade
-            queuedWithdrawalParams[0].depositShares[0] = withdrawableShares[0];
-        }
+        queuedWithdrawalParams[0].depositShares[0] = delegationManager.convertToDepositShares(
+            address(this),
+            queuedWithdrawalParams[0].strategies,
+            withdrawableShares
+        )[0];
 
         // set withdrawer as this contract address
         queuedWithdrawalParams[0].__deprecated_withdrawer = address(this);

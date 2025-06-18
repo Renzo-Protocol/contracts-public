@@ -40,4 +40,6 @@ interface IWithdrawQueue {
     function getOutstandingWithdrawRequests(address user) external view returns (uint256);
 
     function claim(uint256 withdrawRequestIndex, address user) external;
+
+    function stETHPendingWithdrawAmount() external view returns (uint256);
 }

@@ -14,5 +14,6 @@ abstract contract RenzoOracleStorageV1 {
 }
 
 abstract contract RenzoOracleStorageV2 is RenzoOracleStorageV1 {
+    /// @dev Deprecated - not using anymore as secondary rate withdrawal/claims migration is complete
     AggregatorV3Interface public stETHSecondaryOracle;
 }

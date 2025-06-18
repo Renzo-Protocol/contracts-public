@@ -3,8 +3,10 @@ pragma solidity 0.8.27;
 
 import "../Permissions/IRoleManager.sol";
 import "../Oracle/IRenzoOracle.sol";
+import "../Oracle/RiskOracle/IRiskOracleMiddleware.sol";
 import "../IRestakeManager.sol";
 import "../token/IEzEthToken.sol";
+import "./stETH/IstETHWithdrawalQueue.sol";
 
 abstract contract WithdrawQueueStorageV1 {
     address public constant IS_NATIVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -85,9 +87,19 @@ abstract contract WithdrawQueueStorageV4 is WithdrawQueueStorageV3 {
 }
 
 abstract contract WithdrawQueueStorageV5 is WithdrawQueueStorageV4 {
+    /// @dev Deprecated - not using anymore as secondary rate withdrawal/claims migration is complete
     /// @dev mapping to track stETH depositors and their ezETH balance
     mapping(address => uint256) public stETHDepositors;
 
+    /// @dev Deprecated - not using anymore as secondary rate withdrawal/claims migration is complete
     /// @dev mapping to track stETH depositors and their withdrawal amount of ezETH at market rate
     mapping(bytes32 => uint256) public stETHDepositorsWithdrawalAmount;
+}
+
+abstract contract WithdrawQueueStorageV6 is WithdrawQueueStorageV5 {
+    /// @dev amount pending from the stETH withdraw queue
+    uint256 public stETHPendingWithdrawAmount;
+
+    /// @dev track pending withdraw amount for stETH via withdraw IDs
+    mapping(uint256 => uint256) public stETHPendingWithdrawAmountById;
 }

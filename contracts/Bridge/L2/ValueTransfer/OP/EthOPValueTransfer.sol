@@ -49,7 +49,7 @@ contract EthOPValueTransfer is IValueTransferBridge {
      * @notice  Transfers ETH to mainnet via the standard bridge
      * @dev     .
      * @param   .
-     * @param   .   should always be wsteth
+     * @param   .   should always be ETH
      * @param   .  amount to send
      * @return  transferId  always 0
      */
@@ -59,7 +59,6 @@ contract EthOPValueTransfer is IValueTransferBridge {
         address /*token - awlays ETH*/,
         uint256 /*amount - always full amount*/
     ) external payable returns (bytes32 transferId) {
-        // Do not allow ETH
         if (msg.value == 0) revert UnsupportedWithdrawAsset();
 
         // TODO: Determine if we need to add extra data to track this tx

@@ -46,7 +46,6 @@ contract xRenzoDepositNativeBridge is
 
     event PriceUpdated(uint256 price, uint256 timestamp);
     event Deposit(address indexed user, uint256 amountIn, uint256 amountOut);
-    event BridgeSweeperAddressUpdated(address sweeper, bool allowed);
     event BridgeSwept(address token, uint256 amount, address sweeper);
     event ReceiverPriceFeedUpdated(address newReceiver, address oldReceiver);
     event SweeperBridgeFeeCollected(address sweeper, address token, uint256 feeCollected);
@@ -499,6 +498,7 @@ contract xRenzoDepositNativeBridge is
      * @param   _token  EC20 token
      * @param   _supported  Indicates if the token is supported for a deposit asset
      * @param   _tokenOracle  If supported, the oracle for the token to get pricing in ETH
+     * @param   _valueTransferBridge  Middleware contract used to transfer asset through configured bridge
      */
     function setSupportedToken(
         IERC20 _token,
